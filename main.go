@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BlueKrypto/k3os/pkg/cli/app"
-	"github.com/BlueKrypto/k3os/pkg/enterchroot"
-	"github.com/BlueKrypto/k3os/pkg/mount"
-	"github.com/BlueKrypto/k3os/pkg/transferroot"
 	"github.com/moby/moby/pkg/reexec"
+	"github.com/petercb/k3os/pkg/cli/app"
+	"github.com/petercb/k3os/pkg/enterchroot"
+	"github.com/petercb/k3os/pkg/mount"
+	"github.com/petercb/k3os/pkg/transferroot"
 	"github.com/sirupsen/logrus"
 )
 

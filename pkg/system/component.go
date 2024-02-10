@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BlueKrypto/k3os/pkg/mount"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )

@@ -1,0 +1,30 @@
+---
+schemaVersion: '2.0.0'
+
+metadataTest:
+  entrypoint:
+    - "k3os"
+
+fileExistenceTests:
+  - name: k3os
+    path: "/k3os/system/k3os/current/k3os"
+    shouldExist: true
+    isExecutableBy: "any"
+  - name: k3os-install
+    path: "/k3os/system/k3os/current/k3os-install.sh"
+    shouldExist: true
+    isExecutableBy: "any"
+  - name: k3s
+    path: "/k3os/system/k3s/current/k3s"
+    shouldExist: true
+    isExecutableBy: "any"
+  - name: k3s-install
+    path: "/k3os/system/k3s/current/k3s-install.sh"
+    shouldExist: true
+    isExecutableBy: "any"
+  - name: initrd
+    path: "/k3os/system/kernel/current/initrd"
+    shouldExist: true
+  - name: kernel
+    path: "/k3os/system/kernel/current/kernel.squashfs"
+    shouldExist: true

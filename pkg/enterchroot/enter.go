@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BlueKrypto/k3os/pkg/mount"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/moby/moby/pkg/reexec"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

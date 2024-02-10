@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BlueKrypto/k3os/pkg/cliinstall"
-	"github.com/BlueKrypto/k3os/pkg/mode"
+	"github.com/petercb/k3os/pkg/cliinstall"
+	"github.com/petercb/k3os/pkg/mode"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )

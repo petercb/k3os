@@ -1,0 +1,52 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.4
+    hooks:
+      - id: codespell
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+      - id: go-mod-tidy
+      - id: go-unit-tests
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.55.0
+    hooks:
+      - id: golangci-lint-full
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.10.0
+    hooks:
+      - id: markdownlint-cli2
+  - repo: local
+    hooks:
+      - id: circleci
+        name: CircleCI Config validate
+        language: system
+        entry: circleci config validate
+        files: '\.circleci/continue_config\.yml'
+        stages:
+          - commit
