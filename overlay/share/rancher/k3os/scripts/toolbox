@@ -4,7 +4,7 @@
 # A simple way to bring your own tools to the K3OS Kubernetes Linux distribution
 # Inspired by https://github.com/containers/toolbox
 
-if [ $(whoami) != "root" ]
+if [ "$(whoami)" != "root" ]
 then
 	echo "This script must be run as root."
 	exit 1
@@ -72,4 +72,3 @@ case $op in
 		fi
 		;;
 esac
-

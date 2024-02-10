@@ -136,7 +136,7 @@ takeover()
     rm -f k3os/system/takeover
     rm -rf k3os/data
     sync
-    
+
     if [ -e k3os/system/poweroff ]; then
         rm -f k3os/system/poweroff
         sync
