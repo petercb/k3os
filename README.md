@@ -1,8 +1,7 @@
+# k3OS
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/petercb/k3os)
-![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/petercb/k3os?include_prereleases&label=release&sort=semver)
-
-# k3OS
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/petercb/k3os?label=release&sort=semver)
 
 k3OS is a Linux distribution designed to remove as much OS maintenance
 as possible in a Kubernetes cluster. It is specifically designed to only
@@ -11,6 +10,7 @@ the OS is designed to be managed by `kubectl` once a cluster is bootstrapped.
 Nodes only need to join a cluster and then all aspects of the OS can be managed
 from Kubernetes. Both k3OS and k3s upgrades are handled by the k3OS operator.
 
+1. [Notes](#notes)
 1. [Quick Start](#quick-start)
 1. [Design](#design)
 1. [Installation](#installation)
@@ -18,6 +18,12 @@ from Kubernetes. Both k3OS and k3s upgrades are handled by the k3OS operator.
 1. [Upgrade/Maintenance](#upgrade-and-maintenance)
 1. [Building](#building)
 1. [Configuration Reference](#configuration-reference)
+
+## Notes
+
+The [original project](https://github.com/rancher/k3os) created by Rancher has since been discontinued.
+
+This work is a hard fork of it as well as [BlueKrypto's](https://github.com/BlueKrypto/k3os).
 
 ## Quick Start
 
