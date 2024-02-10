@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/petercb/k3os/pkg/mount"
 	"github.com/otiai10/copy"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/sirupsen/logrus"
 )
 
