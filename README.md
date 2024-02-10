@@ -111,7 +111,7 @@ Below is a reference of all cmdline args used to automate installation
 | k3os.install.force_efi  | false   | true                                              | Force EFI installation even when EFI is not detected |
 | k3os.install.device     |         | /dev/vda                                          | Device to partition and format (/dev/sda, /dev/vda) |
 | k3os.install.config_url |         | [https://gist.github.com/.../dweomer.yaml](https://gist.github.com/dweomer/8750d56fb21a3fbc8d888609d6e74296#file-dweomer-yaml) | The URL of the config to be installed at `/k3os/system/config.yaml` |
-| k3os.install.iso_url    |         | https://github.com/petercb/k3os/../k3os-amd64.iso | ISO to download and install from if booting from kernel/vmlinuz and not ISO. |
+| k3os.install.iso_url    |         | <https://github.com/petercb/k3os/../k3os-amd64.iso> | ISO to download and install from if booting from kernel/vmlinuz and not ISO. |
 | k3os.install.no_format  |         | true                                              | Do not partition and format, assume layout exists already |
 | k3os.install.tty        | auto    | ttyS0                                             | The tty device used for console |
 | k3os.install.debug      | false   | true                                              | Run installation with more logging and configure debug for installed system |
@@ -130,7 +130,7 @@ This script will run the same installation as the ISO but is a bit more raw and 
 ```
 Usage: ./install.sh [--force-efi] [--debug] [--tty TTY] [--poweroff] [--takeover] [--no-format] [--config https://.../config.yaml] DEVICE ISO_URL
 
-Example: ./install.sh /dev/vda https://github.com/petercb/k3os/releases/download/lastest/k3os.iso
+Example: ./install.sh /dev/vda https://github.com/petercb/k3os/releases/download/latest/k3os.iso
 
 DEVICE must be the disk that will be partitioned (/dev/vda). If you are using --no-format it should be the device of the K3OS_STATE partition (/dev/vda2)
 
@@ -172,7 +172,6 @@ In order for this to work a couple of assumptions are made. First the root (/) i
 ```bash
 ./install.sh --takeover --debug --tty ttyS0 --config /tmp/config.yaml --no-format /dev/vda1 https://github.com/petercb/k3os/releases/download/latest/k3os.iso
 ```
-
 
 This method places k3OS on disk and also overwrites `/sbin/init`.
 On next reboot your ARM bootloader and kernel should be loaded,
@@ -404,7 +403,7 @@ ssh_authorized_keys:
 
 ### `write_files`
 
-A list of files to write to disk on boot. These files can be either plain text, gziped, base64 encoded,
+A list of files to write to disk on boot. These files can be either plain text, gzipped, base64 encoded,
 or base64+gzip encoded.
 
 Example
@@ -624,7 +623,7 @@ k3os:
   - "--service-cidr=10.107.1.0/23"
 
 # Effectively invokes k3s as:
-# exec "k3s" "server" "--cluster-cidr=10.107.0.0/23" "--service-cidr=10.107.1.0/23" 
+# exec "k3s" "server" "--cluster-cidr=10.107.0.0/23" "--service-cidr=10.107.1.0/23"
 ```
 
 ```yaml
@@ -638,7 +637,7 @@ k3os:
   - "10.107.1.0/23"
 
 # Effectively invokes k3s as:
-# exec "k3s" "server" "--cluster-cidr" "10.107.0.0/23" "--service-cidr" "10.107.1.0/23" 
+# exec "k3s" "server" "--cluster-cidr" "10.107.0.0/23" "--service-cidr" "10.107.1.0/23"
 ```
 
 ### `k3os.environment`
