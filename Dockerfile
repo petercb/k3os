@@ -392,13 +392,15 @@ RUN tar cvf userspace.tar -C /usr/src ${VERSION}
 FROM base AS output
 ARG TARGETARCH
 
-COPY --from=kernel /output/vmlinuz /output/k3os-vmlinuz-${TARGETARCH}
-COPY --from=kernel /output/initrd /output/k3os-initrd-${TARGETARCH}
-COPY --from=kernel /output/kernel.squashfs /output/k3os-kernel-${TARGETARCH}.squashfs
-COPY --from=kernel /output/version /output/k3os-kernel-version-${TARGETARCH}
-COPY --from=iso /output/k3os.iso /output/k3os-${TARGETARCH}.iso
-COPY --from=tar /output/userspace.tar /output/k3os-rootfs-${TARGETARCH}.tar
-RUN gzip /output/k3os-rootfs-${TARGETARCH}.tar
+WORKDIR /output
+COPY --from=kernel /output/vmlinuz k3os-vmlinuz-${TARGETARCH}
+COPY --from=kernel /output/initrd k3os-initrd-${TARGETARCH}
+COPY --from=kernel /output/kernel.squashfs k3os-kernel-${TARGETARCH}.squashfs
+COPY --from=kernel /output/version k3os-kernel-version-${TARGETARCH}
+COPY --from=iso /output/k3os.iso k3os-${TARGETARCH}.iso
+COPY --from=tar /output/userspace.tar k3os-rootfs-${TARGETARCH}.tar
+RUN gzip k3os-rootfs-${TARGETARCH}.tar \
+    && find . -type f -exec sha256sum {} > sha256sum-${TARGETARCH}.txt \;
 
 
 ### Main ###
