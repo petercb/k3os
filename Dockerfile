@@ -107,14 +107,14 @@ FROM base AS k3s
 
 ARG TARGETARCH
 ENV TARGETARCH ${TARGETARCH}
-ENV VERSION v1.24.17+k3s1
-ADD https://raw.githubusercontent.com/rancher/k3s/${VERSION}/install.sh /output/install.sh
-ENV INSTALL_K3S_VERSION=${VERSION} \
+ENV K3S_VERSION v1.25.16+k3s4
+ADD https://raw.githubusercontent.com/rancher/k3s/${K3S_VERSION}/install.sh /output/install.sh
+ENV INSTALL_K3S_VERSION=${K3S_VERSION} \
     INSTALL_K3S_SKIP_START=true \
     INSTALL_K3S_BIN_DIR=/output
 RUN chmod +x /output/install.sh \
     && /output/install.sh \
-    && echo "${VERSION}" > /output/version
+    && echo "${K3S_VERSION}" > /output/version
 
 
 ### 10kernel-stage1 ###
