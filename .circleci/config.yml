@@ -107,8 +107,7 @@ jobs:
       - install-cst
       - generate-version
       - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:latest,\
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
+          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
           extra_build_args: >-
             --target=image
             --build-arg BUILDKIT_INLINE_CACHE=1
@@ -181,7 +180,7 @@ jobs:
           steps:
             - docker/build:
                 cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
+                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
@@ -189,19 +188,18 @@ jobs:
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 registry: ghcr.io
                 step-name: Docker build - k3os master
-                tag: $CIRCLE_BRANCH
+                tag: $CIRCLE_BRANCH-$ARCH
                 use-buildkit: true
             - docker/push:
                 registry: ghcr.io
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
-                tag: $CIRCLE_BRANCH
+                tag: $CIRCLE_BRANCH-$ARCH
       - when:
           condition: << parameters.push >>
           steps:
             - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:latest,\
-                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
+                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
@@ -209,12 +207,12 @@ jobs:
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 registry: ghcr.io
                 step-name: Docker build - k3os
-                tag: latest,$VERSION
+                tag: $VERSION-$ARCH
                 use-buildkit: true
             - docker/push:
                 registry: ghcr.io
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
-                tag: latest,$VERSION
+                tag: $VERSION-$ARCH
             - github/setup
             - run:
                 name: Upload artifacts - $ARCH
@@ -236,6 +234,27 @@ jobs:
           covermode: atomic
           failfast: true
           race: true
+
+  assemble-manifest:
+    executor:
+      name: docker/default
+    steps:
+      - docker/check:
+          registry: ghcr.io
+          docker-username: CIRCLE_PROJECT_USERNAME
+          docker-password: GITHUB_TOKEN
+      - run:
+          name: Create multiarch manifest
+          command: >-
+            docker manifest create
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-amd64
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-arm64
+      - run:
+          name: Push multiarch manifest
+          command: >-
+            docker manifest push
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
 
 workflows:
   feature:
@@ -300,3 +319,8 @@ workflows:
           filters: *filter-tags
           requires:
             - "Create github release"
+      - assemble-manifest:
+          filters: *filter-tags
+          requires:
+            - "Tagged AMD64 release"
+            - "Tagged ARM64 release"
