@@ -78,7 +78,7 @@ commands:
           command: >-
             container-structure-test test
             --image
-            << parameters.registry >>/$CIRCLE_USERNAME/<< parameters.image >>:<< parameters.tag >>
+            << parameters.registry >>/$CIRCLE_PROJECT_USERNAME/<< parameters.image >>:<< parameters.tag >>
             --config cst/<< parameters.image >>.yaml
             <<# parameters.pull >> --pull <</ parameters.pull >>
             --output junit
@@ -102,45 +102,44 @@ jobs:
       - checkout
       - docker/check:
           registry: ghcr.io
-          docker-username: CIRCLE_USERNAME
+          docker-username: CIRCLE_PROJECT_USERNAME
           docker-password: GITHUB_TOKEN
       - install-cst
       - generate-version
       - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:latest,\
-            ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
+          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:latest,\
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
           extra_build_args: >-
             --target=image
             --build-arg BUILDKIT_INLINE_CACHE=1
             --build-arg VERSION=$VERSION
-          image: $CIRCLE_USERNAME/k3os
+          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
           registry: ghcr.io
           step-name: Docker build - k3os
           use-buildkit: true
       - run-cst:
-          image: k3os
+          image: ${CIRCLE_PROJECT_REPONAME}
           registry: ghcr.io
       - docker/build:
-          cache_from: ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1}
+          cache_from: ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1}
           extra_build_args: >-
             --target=iso
             --build-arg BUILDKIT_INLINE_CACHE=1
             --build-arg VERSION=$VERSION
-          image: $CIRCLE_USERNAME/k3os-iso
+          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-iso
           registry: ghcr.io
           step-name: Docker build - k3os ISO
           use-buildkit: true
       - run-cst:
-          image: k3os-iso
+          image: ${CIRCLE_PROJECT_REPONAME}-iso
           registry: ghcr.io
       - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
-            ghcr.io/$CIRCLE_USERNAME/k3os-iso:${CIRCLE_SHA1}"
+          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-iso:${CIRCLE_SHA1}"
           extra_build_args: >-
             --target=output
-            --build-arg BUILDKIT_INLINE_CACHE=1
             --build-arg VERSION=$VERSION
-          image: $CIRCLE_USERNAME/k3os-output
+          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-output
           registry: ghcr.io
           step-name: Docker build - k3os output
           use-buildkit: true
@@ -148,7 +147,7 @@ jobs:
           name: Docker collect output
           command: |
             mkdir -p ./dist
-            ID=$(docker create ghcr.io/${CIRCLE_USERNAME}/k3os-output:${CIRCLE_SHA1})
+            ID=$(docker create ghcr.io/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}-output:${CIRCLE_SHA1})
             docker cp ${ID}:/output/k3os-${ARCH}.iso ./dist/
             docker cp ${ID}:/output/k3os-initrd-${ARCH} ./dist/
             docker cp ${ID}:/output/k3os-kernel-${ARCH}.squashfs ./dist/
@@ -160,16 +159,16 @@ jobs:
       - run:
           name: Mount and test ISO
           command: |
-            sudo mkdir -p /mnt/iso
-            sudo mount -o loop ./dist/k3os-${ARCH}.iso /mnt/iso
-            test -s /mnt/iso/efi.img
-            test -s /mnt/iso/boot.catalog
-            test -L /mnt/iso/sbin/crictl
-            test -L /mnt/iso/sbin/ctr
-            test -L /mnt/iso/sbin/init
-            test -L /mnt/iso/sbin/k3os
-            test -L /mnt/iso/sbin/k3s
-            test -L /mnt/iso/sbin/kubectl
+            sudo mkdir -p /tmp/iso
+            sudo mount -o loop ./dist/k3os-${ARCH}.iso /tmp/iso
+            test -s /tmp/iso/efi.img
+            test -s /tmp/iso/boot.catalog
+            test -L /tmp/iso/sbin/crictl
+            test -L /tmp/iso/sbin/ctr
+            test -L /tmp/iso/sbin/init
+            test -L /tmp/iso/sbin/k3os
+            test -L /tmp/iso/sbin/k3s
+            test -L /tmp/iso/sbin/kubectl
       # - run:
       #     name: Unmount ISO
       #     command: sudo umount -q /mnt/iso
@@ -181,40 +180,40 @@ jobs:
               - << pipeline.git.branch >>
           steps:
             - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
+                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
                   --build-arg VERSION=$VERSION
-                image: $CIRCLE_USERNAME/k3os
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 registry: ghcr.io
                 step-name: Docker build - k3os master
                 tag: $CIRCLE_BRANCH
                 use-buildkit: true
             - docker/push:
                 registry: ghcr.io
-                image: $CIRCLE_USERNAME/k3os
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 tag: $CIRCLE_BRANCH
       - when:
           condition: << parameters.push >>
           steps:
             - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:latest,\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
+                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:latest,\
+                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
                   --build-arg VERSION=$VERSION
-                image: $CIRCLE_USERNAME/k3os
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 registry: ghcr.io
                 step-name: Docker build - k3os
                 tag: latest,$VERSION
                 use-buildkit: true
             - docker/push:
                 registry: ghcr.io
-                image: $CIRCLE_USERNAME/k3os
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 tag: latest,$VERSION
             - github/setup
             - run:
