@@ -1,5 +1,5 @@
 ### BASE ###
-FROM alpine:3.17 AS base
+FROM alpine:3.17.0 AS base
 ARG TARGETARCH
 RUN apk --no-cache add \
     bash \
@@ -49,6 +49,7 @@ RUN apk --no-cache add \
     openrc \
     openssh-client \
     openssh-server \
+    openssl \
     parted \
     procps \
     qemu-guest-agent \
@@ -80,7 +81,7 @@ RUN apk --no-cache add \
 
 
 ### gobuild ###
-FROM golang:1.20-alpine3.17 AS gobuild
+FROM golang:1.20.0-alpine3.17 AS gobuild
 RUN apk -U add \
         git \
         gcc \
@@ -106,7 +107,7 @@ FROM base AS k3s
 
 ARG TARGETARCH
 ENV TARGETARCH ${TARGETARCH}
-ENV VERSION v1.24.15+k3s1
+ENV VERSION v1.24.17+k3s1
 ADD https://raw.githubusercontent.com/rancher/k3s/${VERSION}/install.sh /output/install.sh
 ENV INSTALL_K3S_VERSION=${VERSION} \
     INSTALL_K3S_SKIP_START=true \
