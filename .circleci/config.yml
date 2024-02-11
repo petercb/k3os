@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  github: circleci/github-cli@2.3.0
+  github: circleci/github-cli@2
   go: circleci/go@1
   docker: circleci/docker@2
 
@@ -237,7 +237,7 @@ jobs:
 
   assemble-manifest:
     executor:
-      name: docker/default
+      name: docker/docker
     steps:
       - docker/check:
           registry: ghcr.io
