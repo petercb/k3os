@@ -121,7 +121,7 @@ jobs:
           image: k3os
           registry: ghcr.io
       - docker/build:
-          cache_from: ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1}
+          cache_from: ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1}
           extra_build_args: >-
             --target=iso
             --build-arg BUILDKIT_INLINE_CACHE=1
@@ -134,8 +134,8 @@ jobs:
           image: k3os-iso
           registry: ghcr.io
       - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1},\
-            ghcr.io/$CIRCLE_USERNAME/k3os-iso:${$CIRCLE_SHA1}"
+          cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
+            ghcr.io/$CIRCLE_USERNAME/k3os-iso:${CIRCLE_SHA1}"
           extra_build_args: >-
             --target=output
             --build-arg BUILDKIT_INLINE_CACHE=1
@@ -148,7 +148,7 @@ jobs:
           name: Docker collect output
           command: |
             mkdir -p ./dist
-            ID=$(docker create ghcr.io/${CIRCLE_USERNAME}/k3os-output:${$CIRCLE_SHA1})
+            ID=$(docker create ghcr.io/${CIRCLE_USERNAME}/k3os-output:${CIRCLE_SHA1})
             docker cp ${ID}:/output/k3os-${ARCH}.iso ./dist/
             docker cp ${ID}:/output/k3os-initrd-${ARCH} ./dist/
             docker cp ${ID}:/output/k3os-kernel-${ARCH}.squashfs ./dist/
@@ -181,8 +181,8 @@ jobs:
               - << pipeline.git.branch >>
           steps:
             - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_BRANCH}"
+                cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
@@ -201,8 +201,8 @@ jobs:
           steps:
             - docker/build:
                 cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:latest,\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_BRANCH}"
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
@@ -241,28 +241,30 @@ jobs:
 workflows:
   feature:
     jobs:
-      - test
+      - test:
+          filters: &filter-feature
+            branches:
+              ignore: master
       - build:
           executor: amd64
           push: false
           context: github
-          filters:
-            branches:
-              ignore: master
+          filters: *filter-feature
           requires:
             - test
 
   continuous:
     jobs:
-      - test
+      - test:
+          filters: &filter-master
+            branches:
+              only: master
       - build: &rc-build
           name: Release candidate build (AMD64)
           executor: amd64
           push: false
           context: github
-          filters:
-            branches:
-              only: master
+          filters: *filter-master
           requires:
             - test
       - build:
