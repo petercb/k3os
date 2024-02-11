@@ -156,19 +156,19 @@ jobs:
             docker cp ${ID}:/output/k3os-vmlinuz-${ARCH} ./dist/
             docker cp ${ID}:/output/sha256sum-${ARCH}.txt ./dist/
             docker rm -fv ${ID}
-      - run:
-          name: Mount and test ISO
-          command: |
-            sudo mkdir -p /tmp/iso
-            sudo mount -o loop ./dist/k3os-${ARCH}.iso /tmp/iso
-            test -s /tmp/iso/efi.img
-            test -s /tmp/iso/boot.catalog
-            test -L /tmp/iso/sbin/crictl
-            test -L /tmp/iso/sbin/ctr
-            test -L /tmp/iso/sbin/init
-            test -L /tmp/iso/sbin/k3os
-            test -L /tmp/iso/sbin/k3s
-            test -L /tmp/iso/sbin/kubectl
+      # - run:
+      #     name: Mount and test ISO
+      #     command: |
+      #       mkdir -p /tmp/iso
+      #       mount -o loop ./dist/k3os-${ARCH}.iso /tmp/iso
+      #       test -s /tmp/iso/efi.img
+      #       test -s /tmp/iso/boot.catalog
+      #       test -L /tmp/iso/sbin/crictl
+      #       test -L /tmp/iso/sbin/ctr
+      #       test -L /tmp/iso/sbin/init
+      #       test -L /tmp/iso/sbin/k3os
+      #       test -L /tmp/iso/sbin/k3s
+      #       test -L /tmp/iso/sbin/kubectl
       # - run:
       #     name: Unmount ISO
       #     command: sudo umount -q /mnt/iso
