@@ -155,7 +155,7 @@ jobs:
             docker cp ${ID}:/output/k3os-kernel-version-${ARCH} ./dist/
             docker cp ${ID}:/output/k3os-rootfs-${ARCH}.tar.gz ./dist/
             docker cp ${ID}:/output/k3os-vmlinuz-${ARCH} ./dist/
-            docker cp ${ID}:/output/sha256sum-${ARCH} ./dist/
+            docker cp ${ID}:/output/sha256sum-${ARCH}.txt ./dist/
             docker rm -fv ${ID}
       - run:
           name: Mount and test ISO
@@ -170,10 +170,10 @@ jobs:
             test -L /mnt/iso/sbin/k3os
             test -L /mnt/iso/sbin/k3s
             test -L /mnt/iso/sbin/kubectl
-      - run:
-          name: Unmount ISO
-          command: sudo umount -q /mnt/iso
-          when: always
+      # - run:
+      #     name: Unmount ISO
+      #     command: sudo umount -q /mnt/iso
+      #     when: always
       - when:
           condition:
             equal:
