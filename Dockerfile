@@ -106,7 +106,7 @@ FROM base AS k3s
 
 ARG TARGETARCH
 ENV TARGETARCH ${TARGETARCH}
-ENV VERSION v1.24.13+k3s1
+ENV VERSION v1.24.15+k3s1
 ADD https://raw.githubusercontent.com/rancher/k3s/${VERSION}/install.sh /output/install.sh
 ENV INSTALL_K3S_VERSION=${VERSION} \
     INSTALL_K3S_SKIP_START=true \
@@ -133,8 +133,8 @@ RUN apt-get --assume-yes update \
  && echo 'nls_iso8859_1' >> /etc/initramfs-tools/modules
 
 ARG TARGETARCH
-ENV KVERSION=5.15.0-60-generic
-ENV URL=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-60.66-bluekrypto1
+ENV KVERSION=5.15.0-76-generic
+ENV URL=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-76.83-bluekrypto1
 ENV KERNEL_XZ=${URL}/kernel-generic_${TARGETARCH}.tar.xz
 ENV KERNEL_EXTRA_XZ=${URL}/kernel-extra-generic_${TARGETARCH}.tar.xz
 ENV KERNEL_HEADERS_XZ=${URL}/kernel-headers-generic_${TARGETARCH}.tar.xz
