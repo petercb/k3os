@@ -63,6 +63,9 @@ commands:
       image:
         type: string
         default: ""
+      pull:
+        type: boolean
+        default: false
       registry:
         type: string
         default: ghcr.io
@@ -77,7 +80,7 @@ commands:
             --image
             << parameters.registry >>/$CIRCLE_USERNAME/<< parameters.image >>:<< parameters.tag >>
             --config cst/<< parameters.image >>.yaml
-            --pull
+            <<# parameters.pull >> --pull <</ parameters.pull >>
             --output junit
             --test-report << parameters.image >>-cst-results.xml
       - store_test_results:
@@ -97,17 +100,15 @@ jobs:
     steps:
       - setup_remote_docker
       - checkout
-      - when:
-          condition: << parameters.push >>
-          steps:
-            - docker/check:
-                registry: ghcr.io
-                docker-username: CIRCLE_USERNAME
-                docker-password: GITHUB_TOKEN
+      - docker/check:
+          registry: ghcr.io
+          docker-username: CIRCLE_USERNAME
+          docker-password: GITHUB_TOKEN
       - install-cst
       - generate-version
       - docker/build:
-          cache_from: ghcr.io/$CIRCLE_USERNAME/k3os:latest
+          cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:latest,\
+            ghcr.io/$CIRCLE_USERNAME/k3os:${CIRCLE_BRANCH}"
           extra_build_args: >-
             --target=image
             --build-arg BUILDKIT_INLINE_CACHE=1
@@ -171,14 +172,37 @@ jobs:
             test -L /mnt/iso/sbin/kubectl
       - run:
           name: Unmount ISO
-          command: sudo umount /mnt/iso
+          command: sudo umount -q /mnt/iso
           when: always
+      - when:
+          condition:
+            equal:
+              - master
+              - << pipeline.git.branch >>
+          steps:
+            - docker/build:
+                cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_BRANCH}"
+                extra_build_args: >-
+                  --target=image
+                  --build-arg BUILDKIT_INLINE_CACHE=1
+                  --build-arg VERSION=$VERSION
+                image: $CIRCLE_USERNAME/k3os
+                registry: ghcr.io
+                step-name: Docker build - k3os master
+                tag: $CIRCLE_BRANCH
+                use-buildkit: true
+            - docker/push:
+                registry: ghcr.io
+                image: $CIRCLE_USERNAME/k3os
+                tag: $CIRCLE_BRANCH
       - when:
           condition: << parameters.push >>
           steps:
             - docker/build:
                 cache_from: "ghcr.io/$CIRCLE_USERNAME/k3os:latest,\
-                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1}"
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_SHA1},\
+                  ghcr.io/$CIRCLE_USERNAME/k3os:${$CIRCLE_BRANCH}"
                 extra_build_args: >-
                   --target=image
                   --build-arg BUILDKIT_INLINE_CACHE=1
@@ -215,12 +239,36 @@ jobs:
           race: true
 
 workflows:
-  continuous:
+  feature:
     jobs:
       - test
       - build:
+          executor: amd64
           push: false
           context: github
+          filters:
+            branches:
+              ignore: master
+          requires:
+            - test
+
+  continuous:
+    jobs:
+      - test
+      - build: &rc-build
+          name: Release candidate build (AMD64)
+          executor: amd64
+          push: false
+          context: github
+          filters:
+            branches:
+              only: master
+          requires:
+            - test
+      - build:
+          <<: *rc-build
+          name: Release candidate build (ARM64)
+          executor: arm64
 
   tags:
     jobs:
@@ -237,8 +285,17 @@ workflows:
             tags:
               only: /.*/
       - build:
+          <<: *rc-build
+          name: Tagged AMD64 release
           push: true
-          context: github
+          filters: *filter-tags
+          requires:
+            - "Create github release"
+      - build:
+          <<: *rc-build
+          name: Tagged ARM64 release
+          executor: arm64
+          push: true
           filters: *filter-tags
           requires:
             - "Create github release"
