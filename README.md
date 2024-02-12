@@ -11,7 +11,7 @@ the OS is designed to be managed by `kubectl` once a cluster is bootstrapped.
 Nodes only need to join a cluster and then all aspects of the OS can be managed
 from Kubernetes. Both k3OS and k3s upgrades are handled by the k3OS operator.
 
-1. [Notes](#notes)
+1. [Credits](#credits)
 1. [Quick Start](#quick-start)
 1. [Design](#design)
 1. [Installation](#installation)
@@ -20,11 +20,11 @@ from Kubernetes. Both k3OS and k3s upgrades are handled by the k3OS operator.
 1. [Building](#building)
 1. [Configuration Reference](#configuration-reference)
 
-## Notes
+## Credits
 
-The [original project](https://github.com/rancher/k3os) created by Rancher has since been discontinued.
+This is a hard fork of the [original project](https://github.com/rancher/k3os) created by Rancher, that has since been discontinued.
 
-This work is a hard fork of it as well as [BlueKrypto's](https://github.com/BlueKrypto/k3os).
+It draws heavy inspiration from [BlueKrypto's](https://github.com/BlueKrypto/k3os) work as well.
 
 ## Quick Start
 

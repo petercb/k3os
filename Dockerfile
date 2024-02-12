@@ -12,6 +12,7 @@ RUN apk --no-cache add \
     conntrack-tools \
     coreutils \
     cryptsetup \
+    curl \
     dbus \
     dmidecode \
     dosfstools \
@@ -71,7 +72,7 @@ RUN apk --no-cache add \
  && mv -vf /etc/conf.d/qemu-guest-agent /etc/conf.d/qemu-guest-agent.orig \
  && mv -vf /etc/conf.d/rngd             /etc/conf.d/rngd.orig \
  && mv -vf /etc/conf.d/udev-settle      /etc/conf.d/udev-settle.orig \
- && if [ "$TARGETARCH" == "amd64" ]; then apk --no-cache add \
+ && if [ "$TARGETARCH" = "amd64" ]; then apk --no-cache add \
     grub-bios \
     open-vm-tools \
     open-vm-tools-deploypkg \
@@ -82,7 +83,7 @@ RUN apk --no-cache add \
 
 ### gobuild ###
 FROM golang:1.20.0-alpine3.17 AS gobuild
-RUN apk -U add \
+RUN apk -U add --no-cache \
         git \
         gcc \
         linux-headers \
@@ -118,8 +119,8 @@ RUN chmod +x /output/install.sh \
 
 
 ### 10kernel-stage1 ###
-FROM ubuntu:jammy AS kernel-stage1
-
+FROM ubuntu:jammy-20240125 AS kernel-stage1
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get --assume-yes update \
  && apt-get --assume-yes install \
     initramfs-tools \
@@ -127,6 +128,8 @@ RUN apt-get --assume-yes update \
     lz4 \
     rsync \
     xz-utils \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* \
  && echo 'r8152' >> /etc/initramfs-tools/modules \
  && echo 'hfs' >> /etc/initramfs-tools/modules \
  && echo 'hfsplus' >> /etc/initramfs-tools/modules \
@@ -181,7 +184,9 @@ RUN mkdir -p /usr/src/root && \
 FROM gobuild AS linuxkit
 ENV LINUXKIT v1.0.1
 ENV GO111MODULE off
-RUN git clone https://github.com/linuxkit/linuxkit.git $GOPATH/src/github.com/linuxkit/linuxkit
+RUN git clone \
+    https://github.com/linuxkit/linuxkit.git \
+    "$GOPATH/src/github.com/linuxkit/linuxkit"
 WORKDIR $GOPATH/src/github.com/linuxkit/linuxkit/pkg/metadata
 RUN git checkout -b current $LINUXKIT && \
     go build \
@@ -209,7 +214,11 @@ RUN git clone --branch v0.9.4 https://github.com/ahmetb/kubectx.git \
 FROM base AS rootfs
 ARG VERSION
 ARG TARGETARCH
+
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
+
 RUN apk add --no-cache squashfs-tools
+
 COPY --from=base /bin /usr/src/image/bin/
 COPY --from=base /lib /usr/src/image/lib/
 COPY --from=base /sbin /usr/src/image/sbin/
@@ -228,7 +237,7 @@ RUN cd /usr/src/image && \
     rmdir usr && \
     # Fix coreutils links
     cd /usr/src/image/bin \
-    && find -xtype l -ilname ../usr/bin/coreutils -exec ln -sf coreutils {} \; && \
+    && find . -xtype l -ilname ../usr/bin/coreutils -exec ln -sf coreutils {} \; && \
     # Fix sudo
     chmod +s /usr/src/image/bin/sudo && \
     # Add empty dirs to bind mount
@@ -302,7 +311,10 @@ RUN echo -n "_sqmagic_" >> /output/k3os \
 
 ### 40kernel ###
 FROM base AS kernel
-ARG TAG
+ARG VERSION
+
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
+
 RUN apk add --no-cache squashfs-tools
 COPY --from=kernel-stage1 /output/ /usr/src/kernel/
 
@@ -319,9 +331,9 @@ RUN mkdir -p /usr/src/initrd/lib && \
 
 COPY --from=bin /output/ /usr/src/k3os/
 RUN cd /usr/src/initrd && \
-    mkdir -p k3os/system/k3os/${TAG} && \
-    cp /usr/src/k3os/k3os k3os/system/k3os/${TAG} && \
-    ln -s ${TAG} k3os/system/k3os/current && \
+    mkdir -p k3os/system/k3os/${VERSION} && \
+    cp /usr/src/k3os/k3os k3os/system/k3os/${VERSION} && \
+    ln -s ${VERSION} k3os/system/k3os/current && \
     ln -s /k3os/system/k3os/current/k3os init \
     && cd /usr/src/initrd && \
     find . | cpio -H newc -o | gzip -c -1 > /output/initrd
@@ -340,7 +352,7 @@ RUN mkdir -vp $(cat version) /output/sbin \
     && ln -sf $(cat version) current \
     && mv -vf install.sh current/k3s-install.sh \
     && mv -vf k3s current/ \
-    && rm -vf version *.sh \
+    && rm -vf version ./*.sh \
     && ln -sf /k3os/system/k3s/current/k3s /output/sbin/k3s
 
 WORKDIR /output/k3os/system/k3os
@@ -386,7 +398,7 @@ ARG VERSION
 
 COPY --from=package /output/   /usr/src/${VERSION}/
 WORKDIR /output
-RUN tar cvf userspace.tar -C /usr/src ${VERSION}
+RUN tar czvf userspace.tar.gz -C /usr/src ${VERSION}
 
 
 ### Full ###
@@ -399,9 +411,8 @@ COPY --from=kernel /output/initrd k3os-initrd-${TARGETARCH}
 COPY --from=kernel /output/kernel.squashfs k3os-kernel-${TARGETARCH}.squashfs
 COPY --from=kernel /output/version k3os-kernel-version-${TARGETARCH}
 COPY --from=iso /output/k3os.iso k3os-${TARGETARCH}.iso
-COPY --from=tar /output/userspace.tar k3os-rootfs-${TARGETARCH}.tar
-RUN gzip k3os-rootfs-${TARGETARCH}.tar \
-    && find . -type f -exec sha256sum {} > sha256sum-${TARGETARCH}.txt \;
+COPY --from=tar /output/userspace.tar.gz k3os-rootfs-${TARGETARCH}.tar.gz
+RUN find . -type f -exec sha256sum {} > sha256sum-${TARGETARCH}.txt \;
 
 
 ### Main ###
