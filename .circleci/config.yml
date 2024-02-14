@@ -20,71 +20,6 @@ executors:
       - image: cimg/go:1.20
     resource_class: large
 
-commands:
-  generate-version:
-    steps:
-      - run:
-          name: Retrieve version
-          command: |
-            #!/bin/bash
-            if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-                DIRTY="-dirty"
-            fi
-
-            GIT_TAG=${CIRCLE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
-
-            if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
-                VERSION=$GIT_TAG
-            else
-                VERSION="$(git describe --always --tags)${DIRTY}"
-            fi
-
-            if echo $VERSION | grep -q dirty; then
-                VERSION=dev
-            fi
-            echo "${VERSION}"
-
-            echo "export VERSION=${VERSION}" >> "${BASH_ENV}"
-
-  install-cst:
-    steps:
-      - run:
-          name: Install container-structure-test
-          command: |
-            destFile="${HOME}/bin/container-structure-test"
-            mkdir -p "${HOME}/bin"
-            curl -L -o "${destFile}" \
-              https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64
-            chmod +x "${destFile}"
-
-  run-cst:
-    parameters:
-      image:
-        type: string
-        default: ""
-      pull:
-        type: boolean
-        default: false
-      registry:
-        type: string
-        default: ghcr.io
-      tag:
-        type: string
-        default: $CIRCLE_SHA1
-    steps:
-      - run:
-          name: << parameters.image >> - container-structure-test
-          command: >-
-            container-structure-test test
-            --image
-            << parameters.registry >>/$CIRCLE_PROJECT_USERNAME/<< parameters.image >>:<< parameters.tag >>
-            --config cst/<< parameters.image >>.yaml
-            <<# parameters.pull >> --pull <</ parameters.pull >>
-            --output junit
-            --test-report << parameters.image >>-cst-results.xml
-      - store_test_results:
-          path: << parameters.image >>-cst-results.xml
-
 
 jobs:
   build:
@@ -103,92 +38,23 @@ jobs:
           registry: ghcr.io
           docker-username: CIRCLE_PROJECT_USERNAME
           docker-password: GITHUB_TOKEN
-      - install-cst
-      - generate-version
-      - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
-          extra_build_args: >-
-            --target=image
-            --build-arg BUILDKIT_INLINE_CACHE=1
-            --build-arg VERSION=$VERSION
-          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
-          registry: ghcr.io
-          step-name: Docker build - k3os
-          use-buildkit: true
-      - run-cst:
-          image: ${CIRCLE_PROJECT_REPONAME}
-          registry: ghcr.io
-      - docker/build:
-          cache_from: ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1}
-          extra_build_args: >-
-            --target=iso
-            --build-arg BUILDKIT_INLINE_CACHE=1
-            --build-arg VERSION=$VERSION
-          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-iso
-          registry: ghcr.io
-          step-name: Docker build - k3os ISO
-          use-buildkit: true
-      - run-cst:
-          image: ${CIRCLE_PROJECT_REPONAME}-iso
-          registry: ghcr.io
-      - docker/build:
-          cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-iso:${CIRCLE_SHA1}"
-          extra_build_args: >-
-            --target=output
-            --build-arg VERSION=$VERSION
-          image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}-output
-          registry: ghcr.io
-          step-name: Docker build - k3os output
-          use-buildkit: true
       - run:
-          name: Docker collect output
-          command: |
-            mkdir -p ./dist
-            ID=$(docker create ghcr.io/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}-output:${CIRCLE_SHA1})
-            docker cp ${ID}:/output/k3os-${ARCH}.iso ./dist/
-            docker cp ${ID}:/output/k3os-initrd-${ARCH} ./dist/
-            docker cp ${ID}:/output/k3os-kernel-${ARCH}.squashfs ./dist/
-            docker cp ${ID}:/output/k3os-kernel-version-${ARCH} ./dist/
-            docker cp ${ID}:/output/k3os-rootfs-${ARCH}.tar.gz ./dist/
-            docker cp ${ID}:/output/k3os-vmlinuz-${ARCH} ./dist/
-            docker cp ${ID}:/output/sha256sum-${ARCH}.txt ./dist/
-            docker rm -fv ${ID}
-      # - run:
-      #     name: Mount and test ISO
-      #     command: |
-      #       mkdir -p /tmp/iso
-      #       mount -o loop ./dist/k3os-${ARCH}.iso /tmp/iso
-      #       test -s /tmp/iso/efi.img
-      #       test -s /tmp/iso/boot.catalog
-      #       test -L /tmp/iso/sbin/crictl
-      #       test -L /tmp/iso/sbin/ctr
-      #       test -L /tmp/iso/sbin/init
-      #       test -L /tmp/iso/sbin/k3os
-      #       test -L /tmp/iso/sbin/k3s
-      #       test -L /tmp/iso/sbin/kubectl
-      # - run:
-      #     name: Unmount ISO
-      #     command: sudo umount -q /mnt/iso
-      #     when: always
+          name: Docker build
+          command: scripts/build
+      - run:
+          name: Tests
+          command: scripts/test
+      - store_test_results:
+          path: build/test-results
+      - run:
+          name: Collect output
+          command: scripts/package
       - when:
           condition:
             equal:
               - master
               - << pipeline.git.branch >>
           steps:
-            - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
-                extra_build_args: >-
-                  --target=image
-                  --build-arg BUILDKIT_INLINE_CACHE=1
-                  --build-arg VERSION=$VERSION
-                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
-                registry: ghcr.io
-                step-name: Docker build - k3os master
-                tag: $CIRCLE_BRANCH-$ARCH
-                use-buildkit: true
             - docker/push:
                 registry: ghcr.io
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
@@ -196,18 +62,6 @@ jobs:
       - when:
           condition: << parameters.push >>
           steps:
-            - docker/build:
-                cache_from: "ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1},\
-                  ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}-${ARCH}"
-                extra_build_args: >-
-                  --target=image
-                  --build-arg BUILDKIT_INLINE_CACHE=1
-                  --build-arg VERSION=$VERSION
-                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
-                registry: ghcr.io
-                step-name: Docker build - k3os
-                tag: $VERSION-$ARCH
-                use-buildkit: true
             - docker/push:
                 registry: ghcr.io
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
