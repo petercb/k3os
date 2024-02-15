@@ -1,5 +1,5 @@
 ### BASE ###
-FROM alpine:3.17.0 AS base
+FROM alpine:3.17.7 AS base
 ARG TARGETARCH
 RUN apk --no-cache add \
     bash \
@@ -82,7 +82,7 @@ RUN apk --no-cache add \
 
 
 ### gobuild ###
-FROM golang:1.20.0-alpine3.17 AS gobuild
+FROM golang:1.20.12-alpine3.17 AS gobuild
 RUN apk -U add --no-cache \
         git \
         gcc \
