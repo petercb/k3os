@@ -11,6 +11,9 @@ echo "Building ${IMAGE_FQN}:${TAG}"
 docker build --progress=plain \
     --tag "${IMAGE_FQN}:${TAG}" \
     --tag "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
     --build-arg "VERSION=${VERSION}" \
     --build-arg BUILDKIT_INLINE_CACHE=1 \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
@@ -24,6 +27,9 @@ echo "Building ${IMAGE_FQN}-iso:${TAG}"
 docker build --progress=plain \
     --tag "${IMAGE_FQN}-iso:${TAG}" \
     --tag "${IMAGE_FQN}-iso:${BRANCH}-${ARCH}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
     --build-arg "VERSION=${VERSION}" \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --cache-from "${IMAGE_FQN}:${TAG}" \

@@ -108,7 +108,7 @@ FROM base AS k3s
 
 ARG TARGETARCH
 ENV TARGETARCH ${TARGETARCH}
-ENV K3S_VERSION v1.25.16+k3s4
+ARG K3S_VERSION
 ADD https://raw.githubusercontent.com/rancher/k3s/${K3S_VERSION}/install.sh /output/install.sh
 ENV INSTALL_K3S_VERSION=${K3S_VERSION} \
     INSTALL_K3S_SKIP_START=true \
@@ -122,10 +122,9 @@ RUN chmod +x /output/install.sh \
 FROM ubuntu:jammy-20240125 AS kernel-stage1
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get --assume-yes update \
- && apt-get --assume-yes install \
+ && apt-get --assume-yes install --no-install-recommends \
     initramfs-tools \
     kmod \
-    lz4 \
     rsync \
     xz-utils \
  && apt-get clean \
@@ -137,47 +136,53 @@ RUN apt-get --assume-yes update \
  && echo 'nls_iso8859_1' >> /etc/initramfs-tools/modules
 
 ARG TARGETARCH
-ENV KVERSION=5.15.0-76-generic
-ENV URL=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-76.83-bluekrypto1
-ENV KERNEL_XZ=${URL}/kernel-generic_${TARGETARCH}.tar.xz
-ENV KERNEL_EXTRA_XZ=${URL}/kernel-extra-generic_${TARGETARCH}.tar.xz
-ENV KERNEL_HEADERS_XZ=${URL}/kernel-headers-generic_${TARGETARCH}.tar.xz
+ARG KERNEL_VERSION
+ARG KERNEL_URL
 
 # Download kernel
-ADD $KERNEL_XZ /usr/src/kernel.tar.xz
-ADD $KERNEL_EXTRA_XZ /usr/src/kernel-extra.tar.xz
-ADD $KERNEL_HEADERS_XZ /usr/src/kernel-headers.tar.xz
+ADD ${KERNEL_URL}/kernel-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel.tar.xz
+ADD ${KERNEL_URL}/kernel-extra-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel-extra.tar.xz
+ADD ${KERNEL_URL}/kernel-headers-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel-headers.tar.xz
 
 # Extract to /usr/src/root
-RUN mkdir -p /usr/src/root && \
-    cd /usr/src/root && \
-    tar xvf /usr/src/kernel.tar.xz && \
-    tar xvf /usr/src/kernel-extra.tar.xz && \
-    tar xvf /usr/src/kernel-headers.tar.xz && \
-    # Create initrd
-    mkdir /usr/src/initrd && \
-    rsync -a /usr/src/root/lib/ /lib/ && \
-    depmod $KVERSION && \
-    mkinitramfs -k $KVERSION -c lz4 -o /usr/src/initrd.tmp && \
-    # Generate initrd firmware and module lists
-    mkdir -p /output/lib && \
-    mkdir -p /output/headers && \
-    cd /usr/src/initrd && \
-    lz4cat /usr/src/initrd.tmp | cpio -idmv && \
+WORKDIR /usr/src/root
+RUN echo "Unpacking kernel..." && \
+    tar xf /usr/src/kernel.tar.xz && \
+    echo "Unpacking kernel-extra..." && \
+    tar xf /usr/src/kernel-extra.tar.xz && \
+    echo "Unpacking kernel-headers..." && \
+    tar xf /usr/src/kernel-headers.tar.xz && \
+    echo "rsync -aq /usr/src/root/lib/ /lib/" && \
+    rsync -aq /usr/src/root/lib/ /lib/
+
+# Create initrd
+WORKDIR /output/lib
+WORKDIR /output/headers
+WORKDIR /usr/src/initrd
+RUN echo "Generate initrd" && \
+    depmod ${KERNEL_VERSION} && \
+    mkinitramfs -c gzip -o /usr/src/initrd.tmp ${KERNEL_VERSION} && \
+    zcat /usr/src/initrd.tmp | cpio -idm && \
+    rm /usr/src/initrd.tmp && \
+    echo "Generate firmware and module lists" && \
     find lib/modules -name \*.ko > /output/initrd-modules && \
-    echo lib/modules/${KVERSION}/modules.order >> /output/initrd-modules && \
-    echo lib/modules/${KVERSION}/modules.builtin >> /output/initrd-modules && \
+    echo lib/modules/${KERNEL_VERSION}/modules.order >> /output/initrd-modules && \
+    echo lib/modules/${KERNEL_VERSION}/modules.builtin >> /output/initrd-modules && \
     find lib/firmware -type f > /output/initrd-firmware && \
-    find usr/lib/firmware -type f | sed 's!usr/!!' >> /output/initrd-firmware && \
-    # Copy output assets
-    cd /usr/src/root && \
-    cp -r usr/src/linux-headers* /output/headers && \
+    find usr/lib/firmware -type f | sed 's!usr/!!' >> /output/initrd-firmware
+
+# Copy output assets
+WORKDIR /usr/src/root
+RUN cp -r usr/src/linux-headers* /output/headers && \
     cp -r lib/firmware /output/lib/firmware && \
     cp -r lib/modules /output/lib/modules && \
     cp boot/System.map* /output/System.map && \
     cp boot/config* /output/config && \
     cp boot/vmlinuz-* /output/vmlinuz && \
-    echo ${KVERSION} > /output/version
+    echo ${KERNEL_VERSION} > /output/version
 
 
 ### 20progs ###

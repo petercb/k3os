@@ -7,12 +7,16 @@ source "$(dirname $0)/version"
 echo "Building ${IMAGE_FQN}-output:${TAG}"
 docker build --progress=plain \
     -t "${IMAGE_FQN}-output:${TAG}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
     --build-arg "VERSION=${VERSION}" \
     --target=output \
     -f "$(dirname $0)/../Dockerfile" \
     "$(dirname $0)/.."
 
 DIST_DIR="$(dirname $0)/../dist/"
+rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}"
 ID=$(docker create "${IMAGE_FQN}-output:${TAG}")
 docker cp "${ID}:/output/k3os-${ARCH}.iso" "${DIST_DIR}"
