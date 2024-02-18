@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.6.0
+
 ### BASE ###
 FROM alpine:3.17.7 AS base
 ARG TARGETARCH
@@ -83,24 +85,13 @@ RUN apk --no-cache add \
 
 ### gobuild ###
 FROM golang:1.20.12-alpine3.17 AS gobuild
-RUN apk -U add --no-cache \
-        git \
-        gcc \
-        linux-headers \
-        musl-dev \
-        make \
-        libseccomp \
-        libseccomp-dev \
-        bash \
-    && rm -f /bin/sh \
-    && ln -s /bin/bash /bin/sh
-
-WORKDIR /output
 
 ARG VERSION
 ENV LINKFLAGS "-extldflags -static -s"
 ENV BUILD_VERSION_FLAG "-X github.com/petercb/k3os/pkg/version.Version=$VERSION"
 ENV CGO_ENABLED=0
+
+WORKDIR /output
 
 
 ### 10k3s ###
@@ -187,32 +178,26 @@ RUN cp -r usr/src/linux-headers* /output/headers && \
 
 ### 20progs ###
 FROM gobuild AS linuxkit
-ENV LINUXKIT v1.0.1
+ARG LINUXKIT_VERSION=v1.0.1
 ENV GO111MODULE off
-RUN git clone \
-    https://github.com/linuxkit/linuxkit.git \
+ADD https://github.com/linuxkit/linuxkit.git#${LINUXKIT_VERSION} \
     "$GOPATH/src/github.com/linuxkit/linuxkit"
+
 WORKDIR $GOPATH/src/github.com/linuxkit/linuxkit/pkg/metadata
-RUN git checkout -b current $LINUXKIT && \
-    go build \
+RUN go build \
         -ldflags "$BUILD_VERSION_FLAG $LINKFLAGS" \
         -o /output/metadata
 
 FROM gobuild AS k3os
 COPY go.mod $GOPATH/src/github.com/petercb/k3os/
 COPY go.sum $GOPATH/src/github.com/petercb/k3os/
-COPY /pkg/ $GOPATH/src/github.com/petercb/k3os/pkg/
-COPY /main.go $GOPATH/src/github.com/petercb/k3os/
+COPY pkg/ $GOPATH/src/github.com/petercb/k3os/pkg/
+COPY main.go $GOPATH/src/github.com/petercb/k3os/
 WORKDIR $GOPATH/src/github.com/petercb/k3os
 RUN go build \
     -ldflags "$BUILD_VERSION_FLAG $LINKFLAGS" \
     -mod=readonly \
     -o /output/k3os
-
-FROM gobuild AS progs
-WORKDIR /output
-RUN git clone --branch v0.9.4 https://github.com/ahmetb/kubectx.git \
- && chmod -v +x kubectx/kubectx kubectx/kubens
 
 
 ### 20rootfs ###
@@ -286,7 +271,6 @@ RUN cd /usr/src/image && \
 
 COPY --from=k3s /output/install.sh /usr/src/image/libexec/k3os/k3s-install.sh
 COPY --from=linuxkit /output/metadata /usr/src/image/sbin/metadata
-COPY --from=progs /output/kubectx/kubectx /output/kubectx/kubens /usr/src/image/bin/
 
 COPY overlay/ /usr/src/image/
 
