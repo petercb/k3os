@@ -30,7 +30,6 @@ RUN apk --no-cache add \
     gcompat \
     grub-efi \
     haveged \
-    htop \
     hvtools \
     iproute2 \
     iptables \
