@@ -3,9 +3,15 @@ set -eu
 
 source "$(dirname $0)/version"
 
+CI_ARGS=""
+if [ "${CI:-}" = "true" ]; then
+    CI_ARGS="--progress=plain"
+fi
+
 # Collect build artifacts
 echo "Building ${IMAGE_FQN}-output:${TAG}"
-docker build --progress=plain \
+docker build \
+    ${CI_ARGS} \
     -t "${IMAGE_FQN}-output:${TAG}" \
     --build-arg "K3S_VERSION=${K3S_VERSION}" \
     --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \

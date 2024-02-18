@@ -4,6 +4,7 @@
 : "${KERNEL_VERSION:=5.15.0-76-generic}"
 : "${KERNEL_URL:=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-76.83-bluekrypto1}"
 
+DIRTY=""
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     DIRTY="-dirty"
 fi
