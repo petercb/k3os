@@ -1,8 +1,12 @@
 # syntax=docker/dockerfile:1.6.0
 
 ### BASE ###
-FROM alpine:3.17.7 AS base
+FROM alpine:3.17.7 AS util
+
+FROM util AS base
 ARG TARGETARCH
+
+# hadolint ignore=DL3018
 RUN apk --no-cache add \
     bash \
     bash-completion \
@@ -112,6 +116,21 @@ RUN chmod +x /output/install.sh \
 ### 10kernel-stage1 ###
 FROM ubuntu:jammy-20240125 AS kernel-stage1
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG TARGETARCH
+ARG KERNEL_VERSION
+ARG KERNEL_URL
+
+# Download kernel
+ADD ${KERNEL_URL}/kernel-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel.tar.xz
+ADD ${KERNEL_URL}/kernel-extra-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel-extra.tar.xz
+ADD ${KERNEL_URL}/kernel-headers-generic_${TARGETARCH}.tar.xz \
+    /usr/src/kernel-headers.tar.xz
+
+# Install kernel build depends
+# hadolint ignore=DL3008
 RUN apt-get --assume-yes update \
  && apt-get --assume-yes install --no-install-recommends \
     initramfs-tools \
@@ -125,18 +144,6 @@ RUN apt-get --assume-yes update \
  && echo 'hfsplus' >> /etc/initramfs-tools/modules \
  && echo 'nls_utf8' >> /etc/initramfs-tools/modules \
  && echo 'nls_iso8859_1' >> /etc/initramfs-tools/modules
-
-ARG TARGETARCH
-ARG KERNEL_VERSION
-ARG KERNEL_URL
-
-# Download kernel
-ADD ${KERNEL_URL}/kernel-generic_${TARGETARCH}.tar.xz \
-    /usr/src/kernel.tar.xz
-ADD ${KERNEL_URL}/kernel-extra-generic_${TARGETARCH}.tar.xz \
-    /usr/src/kernel-extra.tar.xz
-ADD ${KERNEL_URL}/kernel-headers-generic_${TARGETARCH}.tar.xz \
-    /usr/src/kernel-headers.tar.xz
 
 # Extract to /usr/src/root
 WORKDIR /usr/src/root
@@ -207,6 +214,7 @@ ARG TARGETARCH
 
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache squashfs-tools
 
 COPY --from=base /bin /usr/src/image/bin/
@@ -216,18 +224,19 @@ COPY --from=base /etc /usr/src/image/etc/
 COPY --from=base /usr /usr/src/image/usr/
 
 # Fix up more stuff to move everything to /usr
-RUN cd /usr/src/image && \
-    for i in usr/*; do \
-        if [ -e $(basename $i) ]; then \
-            tar cvf - $(basename $i) | tar xvf - -C usr && \
-            rm -rf $(basename $i) \
+WORKDIR /usr/src/image
+RUN for i in usr/*; do \
+        if [ -e "$(basename $i)" ]; then \
+            tar cf - "$(basename $i)" | tar xf - -C usr && \
+            rm -rf "$(basename $i)" \
         ;fi && \
         mv $i . \
     ;done && \
-    rmdir usr && \
-    # Fix coreutils links
-    cd /usr/src/image/bin \
-    && find . -xtype l -ilname ../usr/bin/coreutils -exec ln -sf coreutils {} \; && \
+    rmdir usr
+
+# Fix coreutils links
+WORKDIR /usr/src/image/bin
+RUN find . -xtype l -ilname ../usr/bin/coreutils -exec ln -sf coreutils {} \; && \
     # Fix sudo
     chmod +s /usr/src/image/bin/sudo && \
     # Add empty dirs to bind mount
@@ -289,56 +298,60 @@ RUN sed -i -e "s/%VERSION%/${VERSION}/g" \
 
 
 ### 30bin ###
-FROM base AS bin
+FROM util AS bin
 
 COPY --from=rootfs /output/rootfs.squashfs /usr/src/
 COPY install.sh /output/k3os-install.sh
 COPY --from=k3os /output/k3os /output/k3os
-RUN echo -n "_sqmagic_" >> /output/k3os \
+RUN printf "_sqmagic_" >> /output/k3os \
     && cat /usr/src/rootfs.squashfs >> /output/k3os
 
 
 ### 40kernel ###
-FROM base AS kernel
+FROM util AS kernel
 ARG VERSION
 
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache squashfs-tools
 COPY --from=kernel-stage1 /output/ /usr/src/kernel/
 
-RUN mkdir -p /usr/src/initrd/lib && \
-    cd /usr/src/kernel && \
-    tar cf - -T initrd-modules -T initrd-firmware | tar xf - -C /usr/src/initrd/ && \
-    depmod -b /usr/src/initrd $(cat /usr/src/kernel/version) \
-    && mkdir -p /output && \
-    cd /usr/src/kernel && \
-    depmod -b . $(cat /usr/src/kernel/version) && \
+WORKDIR /usr/src/initrd/lib
+WORKDIR /usr/src/kernel
+RUN tar cf - -T initrd-modules -T initrd-firmware \
+    | tar xf - -C /usr/src/initrd/ && \
+    depmod -b /usr/src/initrd "$(cat /usr/src/kernel/version)"
+
+WORKDIR /output
+WORKDIR /usr/src/kernel
+RUN depmod -b . "$(cat /usr/src/kernel/version)" && \
     mksquashfs . /output/kernel.squashfs \
     && cp /usr/src/kernel/version /output/ && \
     cp /usr/src/kernel/vmlinuz /output/
 
 COPY --from=bin /output/ /usr/src/k3os/
-RUN cd /usr/src/initrd && \
-    mkdir -p k3os/system/k3os/${VERSION} && \
+
+WORKDIR /usr/src/initrd
+RUN mkdir -p k3os/system/k3os/${VERSION} && \
     cp /usr/src/k3os/k3os k3os/system/k3os/${VERSION} && \
     ln -s ${VERSION} k3os/system/k3os/current && \
-    ln -s /k3os/system/k3os/current/k3os init \
-    && cd /usr/src/initrd && \
-    find . | cpio -H newc -o | gzip -c -1 > /output/initrd
+    ln -s /k3os/system/k3os/current/k3os init
+WORKDIR /usr/src/initrd
+RUN find . | cpio -H newc -o | gzip -c -1 > /output/initrd
 
 
 ### 50package ###
-FROM base AS package
+FROM util AS package
 ARG VERSION
 
 COPY --from=k3s /output/  /output/k3os/system/k3s/
 COPY --from=bin /output/  /output/k3os/system/k3os/${VERSION}/
 
 WORKDIR /output/k3os/system/k3s
-RUN mkdir -vp $(cat version) /output/sbin \
+RUN mkdir -vp "$(cat version)" /output/sbin \
     && mv -vf crictl ctr kubectl /output/sbin/ \
-    && ln -sf $(cat version) current \
+    && ln -sf "$(cat version)" current \
     && mv -vf install.sh current/k3s-install.sh \
     && mv -vf k3s current/ \
     && rm -vf version ./*.sh \
@@ -353,14 +366,14 @@ RUN ln -sf ${VERSION} current \
 COPY --from=kernel /output/ /output/k3os/system/kernel/
 
 WORKDIR /output/k3os/system/kernel
-RUN mkdir -vp $(cat version) \
-    && ln -sf $(cat version) current \
+RUN mkdir -vp "$(cat version)" \
+    && ln -sf "$(cat version)" current \
     && mv -vf initrd kernel.squashfs current/ \
     && rm -vf version vmlinuz
 
 
 ### 70iso ###
-FROM base AS iso
+FROM util AS iso
 ARG VERSION
 ARG TARGETARCH
 
@@ -368,6 +381,7 @@ COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/iso/
 
+# hadolint ignore=DL3018
 RUN apk --no-cache add xorriso grub grub-efi mtools \
     && if [ "$TARGETARCH" = "amd64" ]; then \
         apk --no-cache add grub-bios \
@@ -382,7 +396,7 @@ RUN grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
 
 
 ### 80tar ###
-FROM base AS tar
+FROM util AS tar
 ARG VERSION
 
 COPY --from=package /output/   /usr/src/${VERSION}/
@@ -391,7 +405,7 @@ RUN tar czvf userspace.tar.gz -C /usr/src ${VERSION}
 
 
 ### Full ###
-FROM base AS output
+FROM util AS output
 ARG TARGETARCH
 
 WORKDIR /output
@@ -401,7 +415,7 @@ COPY --from=kernel /output/kernel.squashfs k3os-kernel-${TARGETARCH}.squashfs
 COPY --from=kernel /output/version k3os-kernel-version-${TARGETARCH}
 COPY --from=iso /output/k3os.iso k3os-${TARGETARCH}.iso
 COPY --from=tar /output/userspace.tar.gz k3os-rootfs-${TARGETARCH}.tar.gz
-RUN find . -type f -exec sha256sum {} > sha256sum-${TARGETARCH}.txt \;
+RUN find . -type f -exec sha256sum {} \; > sha256sum-${TARGETARCH}.txt
 
 
 ### Main ###
