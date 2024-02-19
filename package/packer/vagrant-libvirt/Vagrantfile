@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
   end
 
   # Disable conflicting plugins
-  config.vbguest.auto_update = false if Vagrant.has_plugin?("vagrant-vbguest") 
+  config.vbguest.auto_update = false if Vagrant.has_plugin?("vagrant-vbguest")
 
   # Disable default file syncing
   config.vm.synced_folder '.', '/vagrant', disabled: true

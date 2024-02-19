@@ -1,0 +1,179 @@
+---
+version: 2.1
+
+orbs:
+  github: circleci/github-cli@2
+  go: circleci/go@1
+  docker: circleci/docker@2
+
+executors:
+  arm64:
+    environment:
+      ARCH: arm64
+    docker:
+      - image: cimg/go:1.20
+    resource_class: arm.large
+  amd64:
+    environment:
+      ARCH: amd64
+    docker:
+      - image: cimg/go:1.20
+    resource_class: large
+
+
+jobs:
+  build:
+    parameters:
+      executor:
+        type: executor
+        default: amd64
+      push:
+        type: boolean
+        default: false
+    executor: << parameters.executor >>
+    steps:
+      - setup_remote_docker
+      - checkout
+      - docker/check:
+          registry: ghcr.io
+          docker-username: CIRCLE_PROJECT_USERNAME
+          docker-password: GITHUB_TOKEN
+      - run:
+          name: Docker build
+          command: scripts/build
+      - run:
+          name: Tests
+          command: scripts/test
+      - store_test_results:
+          path: build/test-results
+      - run:
+          name: Collect output
+          command: scripts/package
+      - when:
+          condition:
+            equal:
+              - master
+              - << pipeline.git.branch >>
+          steps:
+            - docker/push:
+                registry: ghcr.io
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
+                tag: $CIRCLE_BRANCH-$ARCH
+      - when:
+          condition: << parameters.push >>
+          steps:
+            - docker/push:
+                registry: ghcr.io
+                image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
+                tag: $VERSION-$ARCH
+            - github/setup
+            - run:
+                name: Upload artifacts - $ARCH
+                command: >-
+                  gh release upload \
+                    "$CIRCLE_TAG" \
+                    ./dist/* \
+                    --repo "$(git config --get remote.origin.url)"
+
+
+  test:
+    executor:
+      name: go/default
+      tag: '1.20'
+    steps:
+      - checkout
+      - go/mod-download
+      - go/test:
+          covermode: atomic
+          failfast: true
+          race: true
+
+  assemble-manifest:
+    executor:
+      name: docker/docker
+    steps:
+      - docker/check:
+          registry: ghcr.io
+          docker-username: CIRCLE_PROJECT_USERNAME
+          docker-password: GITHUB_TOKEN
+      - run:
+          name: Create multiarch manifest
+          command: >-
+            docker manifest create
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-amd64
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-arm64
+      - run:
+          name: Push multiarch manifest
+          command: >-
+            docker manifest push
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
+
+workflows:
+  feature:
+    jobs:
+      - test:
+          filters: &filter-feature
+            branches:
+              ignore: master
+      - build:
+          executor: amd64
+          push: false
+          context: github
+          filters: *filter-feature
+          requires:
+            - test
+
+  continuous:
+    jobs:
+      - test:
+          filters: &filter-master
+            branches:
+              only: master
+      - build: &rc-build
+          name: Release candidate build (AMD64)
+          executor: amd64
+          push: false
+          context: github
+          filters: *filter-master
+          requires:
+            - test
+      - build:
+          <<: *rc-build
+          name: Release candidate build (ARM64)
+          executor: arm64
+
+  tags:
+    jobs:
+      - github/release:
+          name: Create github release
+          draft: true
+          prerelease: true
+          tag: $CIRCLE_TAG
+          additional_args: --verify-tag --notes-from-tag
+          context: github
+          filters: &filter-tags
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+      - build:
+          <<: *rc-build
+          name: Tagged AMD64 release
+          push: true
+          filters: *filter-tags
+          requires:
+            - "Create github release"
+      - build:
+          <<: *rc-build
+          name: Tagged ARM64 release
+          executor: arm64
+          push: true
+          filters: *filter-tags
+          requires:
+            - "Create github release"
+      - assemble-manifest:
+          filters: *filter-tags
+          requires:
+            - "Tagged AMD64 release"
+            - "Tagged ARM64 release"

@@ -81,11 +81,11 @@ do_format()
         BOOT_NUM=1
         STATE_NUM=2
         parted -s ${DEVICE} mkpart primary fat32 0% 50MB
-        parted -s ${DEVICE} mkpart primary ext4 50MB 750MB
+        parted -s ${DEVICE} mkpart primary ext4 50MB 1536MB
     else
         BOOT_NUM=
         STATE_NUM=1
-        parted -s ${DEVICE} mkpart primary ext4 0% 700MB
+        parted -s ${DEVICE} mkpart primary ext4 0% 1536MB
     fi
     parted -s ${DEVICE} set 1 ${BOOTFLAG} on
     partprobe ${DEVICE} 2>/dev/null || true
@@ -215,7 +215,7 @@ EOF
     fi
 
     if [ "$K3OS_INSTALL_FORCE_EFI" = "true" ]; then
-        if [ $(uname -m) = "aarch64" ]; then
+        if [ "$(uname -m)" = "aarch64" ]; then
             GRUB_TARGET="--target=arm64-efi"
         else
             GRUB_TARGET="--target=x86_64-efi"

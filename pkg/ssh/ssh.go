@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rancher/k3os/pkg/config"
-	"github.com/rancher/k3os/pkg/util"
+	"github.com/petercb/k3os/pkg/config"
+	"github.com/petercb/k3os/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,6 +54,7 @@ func getKey(key string, withNet bool) (string, error) {
 	providers := map[string]string{
 		"github": "https://github.com/%s.keys",
 		"gitlab": "https://gitlab.com/%s.keys",
+		"custom": "%s",
 	}
 
 	url, err := url.Parse(key)

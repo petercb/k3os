@@ -11,15 +11,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rancher/k3os/pkg/command"
-	"github.com/rancher/k3os/pkg/config"
-	"github.com/rancher/k3os/pkg/hostname"
-	"github.com/rancher/k3os/pkg/mode"
-	"github.com/rancher/k3os/pkg/module"
-	"github.com/rancher/k3os/pkg/ssh"
-	"github.com/rancher/k3os/pkg/sysctl"
-	"github.com/rancher/k3os/pkg/version"
-	"github.com/rancher/k3os/pkg/writefile"
+	"github.com/petercb/k3os/pkg/command"
+	"github.com/petercb/k3os/pkg/config"
+	"github.com/petercb/k3os/pkg/hostname"
+	"github.com/petercb/k3os/pkg/mode"
+	"github.com/petercb/k3os/pkg/module"
+	"github.com/petercb/k3os/pkg/ssh"
+	"github.com/petercb/k3os/pkg/sysctl"
+	"github.com/petercb/k3os/pkg/version"
+	"github.com/petercb/k3os/pkg/writefile"
 	"github.com/sirupsen/logrus"
 )
 
@@ -128,10 +128,8 @@ func ApplyK3S(cfg *config.CloudConfig, restart, install bool) error {
 		}
 	}
 
-	if strings.HasPrefix(cfg.K3OS.Token, "K10") {
+	if cfg.K3OS.Token != "" {
 		vars = append(vars, fmt.Sprintf("K3S_TOKEN=%s", cfg.K3OS.Token))
-	} else if cfg.K3OS.Token != "" {
-		vars = append(vars, fmt.Sprintf("K3S_CLUSTER_SECRET=%s", cfg.K3OS.Token))
 	}
 
 	var labels []string

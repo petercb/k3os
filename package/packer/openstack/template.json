@@ -49,4 +49,3 @@
     "os_source_image_id": "{{env `OS_SOURCE_IMAGE`}}"
   }
 }
-

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/pkg/mount"
 	"github.com/otiai10/copy"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/sirupsen/logrus"
 )
 
@@ -56,7 +56,7 @@ func CopyComponent(src, dst string, remount bool, key string) (bool, error) {
 		return false, nil
 	}
 	if remount {
-		if err := mount.Mount("", dst, "none", "remount,rw"); err != nil {
+		if err := mount.ForceMount("", dst, "none", "remount,rw"); err != nil {
 			return false, err
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/docker/docker/pkg/mount"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"

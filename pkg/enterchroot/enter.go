@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package enterchroot
 
 import (
@@ -12,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/pkg/mount"
-	"github.com/docker/docker/pkg/reexec"
+	"github.com/moby/moby/pkg/reexec"
+	"github.com/petercb/k3os/pkg/mount"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -208,6 +211,7 @@ func inFile() (string, uint64, error) {
 }
 
 func run(data string) error {
+	// TODO: replace github.com/moby/pkg/mountinfo
 	mounted, err := mount.Mounted(data)
 	if err != nil {
 		return errors.Wrapf(err, "checking %s mounted", data)

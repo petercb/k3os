@@ -1,10 +1,27 @@
 #!/bin/bash
-set -e
+set -eu
 
-cd $(dirname $0)/..
+. "$(dirname $0)/version"
 
-echo Running tests
+: "${CST_BIN:=container-structure-test}"
+if ! command -v "${CST_BIN}" >/dev/null; then
+    CST_BIN="${HOME}/bin/container-structure-test"
+    mkdir -p "$(dirname ${CST_BIN})"
+    curl -L -o "${CST_BIN}" \
+        https://storage.googleapis.com/container-structure-test/latest/container-structure-test-${OS}-${ARCH}
+    chmod +x "${CST_BIN}"
+fi
 
-PACKAGES=". $(find -name '*.go' | xargs -I{} dirname {} |  cut -f2 -d/ | sort -u | grep -Ev '(^\.$|.git|.trash-cache|vendor|bin)' | sed -e 's!^!./!' -e 's!$!/...!')"
+output_dir="$(dirname $0)/../build/test-results"
+mkdir -p "${output_dir}"
 
-go test -cover -tags=test ${PACKAGES}
+for image_suffix in "" "-iso"; do
+    output_flags=""
+    if [ "${CIRCLECI:-}" = "true" ]; then
+        output_flags="--output junit --test-report ${output_dir}/${IMAGE_NAME}${image_suffix}-cst-results.xml"
+    fi
+    ${CST_BIN} test \
+        --config "$(dirname $0)/../cst/k3os${image_suffix}.yaml" \
+        --image "${IMAGE_FQN}${image_suffix}:${TAG}" \
+        ${output_flags}
+done

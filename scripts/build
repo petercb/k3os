@@ -1,11 +1,44 @@
 #!/bin/bash
-set -e
 
-source $(dirname $0)/version
-source $(dirname $0)/images
+set -eu
 
-cd $(dirname $0)/..
+source "$(dirname $0)/version"
 
-cd images
+CI_ARGS=""
+if [ "${CI:-}" = "true" ]; then
+    CI_ARGS="--progress=plain --build-arg BUILDKIT_INLINE_CACHE=1"
+fi
 
-build_all "$@"
+export DOCKER_BUILDKIT=1
+
+# Build k3os docker container
+echo "Building ${IMAGE_FQN}:${TAG}"
+docker build \
+    ${CI_ARGS} \
+    --tag "${IMAGE_FQN}:${TAG}" \
+    --tag "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
+    --build-arg "VERSION=${VERSION}" \
+    --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
+    --cache-from "${IMAGE_FQN}:${TAG}" \
+    --target=image \
+    --file "$(dirname $0)/../Dockerfile" \
+    "$(dirname $0)/.."
+
+# Build ISO container
+echo "Building ${IMAGE_FQN}-iso:${TAG}"
+docker build \
+    ${CI_ARGS} \
+    --tag "${IMAGE_FQN}-iso:${TAG}" \
+    --tag "${IMAGE_FQN}-iso:${BRANCH}-${ARCH}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
+    --build-arg "VERSION=${VERSION}" \
+    --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
+    --cache-from "${IMAGE_FQN}:${TAG}" \
+    --target=iso \
+    --file "$(dirname $0)/../Dockerfile" \
+    "$(dirname $0)/.."

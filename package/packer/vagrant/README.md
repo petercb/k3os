@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-1. Build vagrant box image using [Packer](https://www.packer.io/): 
+1. Build vagrant box image using [Packer](https://www.packer.io/):
 
 ```bash
 packer build .

@@ -1,26 +1,54 @@
 #!/bin/bash
 
+: "${K3S_VERSION:=v1.23.17+k3s1}"
+: "${KERNEL_VERSION:=5.15.0-76-generic}"
+: "${KERNEL_URL:=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-76.83-bluekrypto1}"
+
+DIRTY=""
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     DIRTY="-dirty"
 fi
 
+BRANCH="${CIRCLE_BRANCH:-$(git branch --show-current)}"
 COMMIT=$(git rev-parse --short HEAD)
-GIT_TAG=${DRONE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
-
-if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
-    VERSION=$GIT_TAG
-else
+GIT_TAG=${CIRCLE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
+VERSION=${GIT_TAG}
+if [[ -n "${DIRTY}" ]]; then
+    VERSION=dev
+elif [[ -z "${VERSION}" ]]; then
     VERSION="$(git describe --always --tags)${DIRTY}"
 fi
 
-if [ -z "$ARCH" ]; then
+if [ -z "${ARCH:-}" ]; then
     ARCH=$(go env GOHOSTARCH)
 fi
 
-ARCH=${ARCH:-"amd64"}
-TAG=${TAG:-"${VERSION}-${ARCH}"}
-REPO=${REPO:-rancher}
+if [ -z "${OS:-}" ]; then
+    OS=$(go env GOHOSTOS)
+fi
 
-if echo $TAG | grep -q dirty; then
-    TAG=dev
+REGISTRY="docker.io"
+if [[ "$(git config --get remote.origin.url)" =~ @github\.com: ]]; then
+    REGISTRY="ghcr.io"
+fi
+
+ARCH=${ARCH:-"amd64"}
+OS=${OS:-linux}
+TAG=${TAG:-"${VERSION}-${ARCH}"}
+REPO=${CIRCLE_PROJECT_USERNAME:-petercb}
+IMAGE_NAME=${CIRCLE_PROJECT_REPONAME:-k3os}
+IMAGE_FQN="${REGISTRY}/${REPO}/${IMAGE_NAME}"
+
+echo "K3os Version = ${VERSION}"
+echo "K3s Version  = ${K3S_VERSION}"
+echo "Branch       = ${BRANCH}"
+echo "Commit       = ${COMMIT}"
+echo "OS           = ${OS}"
+echo "Arch         = ${ARCH}"
+echo "Image        = ${IMAGE_FQN}"
+echo "Kernel       = ${KERNEL_VERSION}"
+echo "Kernel URL   = ${KERNEL_URL}"
+
+if [ "${CIRCLECI:-}" = "true" ]; then
+    echo "export VERSION=${VERSION}" >> "${BASH_ENV:-/dev/null}"
 fi

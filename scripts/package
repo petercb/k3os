@@ -1,35 +1,35 @@
 #!/bin/bash
-set -e
+set -eu
 
-source $(dirname $0)/version
-source $(dirname $0)/images
+source "$(dirname $0)/version"
 
-cd $(dirname $0)/..
+CI_ARGS=""
+if [ "${CI:-}" = "true" ]; then
+    CI_ARGS="--progress=plain"
+fi
 
-DIST=$(pwd)/dist/artifacts
-
-pushd images/output
-build_all "$@"
-mkdir -p ${DIST}
-copy_all ${DIST} "$@"
-popd
-
-mkdir -p ./build
-ID=$(docker create ${REPO}/k3os-package:${TAG})
-docker cp ${ID}:/output/k3os ./build/
-docker rm -fv $ID
-
+# Collect build artifacts
+echo "Building ${IMAGE_FQN}-output:${TAG}"
 docker build \
-  --build-arg ARCH=${ARCH} \
-  --build-arg REPO=${REPO} \
-  --build-arg TAG=${TAG} \
-  --build-arg VERSION=${VERSION} \
-  --file package/Dockerfile \
-  --tag ${REPO}/k3os:${TAG} \
-  --tag ${REPO}/k3os:latest \
-.
-docker image save --output ./dist/images.tar \
-  ${REPO}/k3os:${TAG} \
-  ${REPO}/k3os:latest
-echo ${REPO}/k3os:${TAG} > ./dist/images.txt
-echo Built ${REPO}/k3os:${TAG}
+    ${CI_ARGS} \
+    -t "${IMAGE_FQN}-output:${TAG}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
+    --build-arg "KERNEL_URL=${KERNEL_URL}" \
+    --build-arg "VERSION=${VERSION}" \
+    --target=output \
+    -f "$(dirname $0)/../Dockerfile" \
+    "$(dirname $0)/.."
+
+DIST_DIR="$(dirname $0)/../dist/"
+rm -rf "${DIST_DIR}"
+mkdir -p "${DIST_DIR}"
+ID=$(docker create "${IMAGE_FQN}-output:${TAG}")
+docker cp "${ID}:/output/k3os-${ARCH}.iso" "${DIST_DIR}"
+docker cp "${ID}:/output/k3os-initrd-${ARCH}" "${DIST_DIR}"
+docker cp "${ID}:/output/k3os-kernel-${ARCH}.squashfs" "${DIST_DIR}"
+docker cp "${ID}:/output/k3os-kernel-version-${ARCH}" "${DIST_DIR}"
+docker cp "${ID}:/output/k3os-rootfs-${ARCH}.tar.gz" "${DIST_DIR}"
+docker cp "${ID}:/output/k3os-vmlinuz-${ARCH}" "${DIST_DIR}"
+docker cp "${ID}:/output/sha256sum-${ARCH}.txt" "${DIST_DIR}"
+docker rm -fv "${ID}"

@@ -97,4 +97,3 @@ The image used was a stock Ubuntu 18.04 cloud image for arm64.  The image was lo
 
 
 I had to build Packer from source for aarch64 due to the following issue with Packer: [8258](https://github.com/hashicorp/packer/issues/8258)
-

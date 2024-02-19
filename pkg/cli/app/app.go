@@ -3,11 +3,11 @@ package app
 import (
 	"fmt"
 
-	"github.com/rancher/k3os/pkg/cli/config"
-	"github.com/rancher/k3os/pkg/cli/install"
-	"github.com/rancher/k3os/pkg/cli/rc"
-	"github.com/rancher/k3os/pkg/cli/upgrade"
-	"github.com/rancher/k3os/pkg/version"
+	"github.com/petercb/k3os/pkg/cli/config"
+	"github.com/petercb/k3os/pkg/cli/install"
+	"github.com/petercb/k3os/pkg/cli/rc"
+	"github.com/petercb/k3os/pkg/cli/upgrade"
+	"github.com/petercb/k3os/pkg/version"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )

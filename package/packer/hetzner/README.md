@@ -4,7 +4,7 @@
 
 Select a project in Hetzner Cloud console and create an API token:
 
-Security --> API Tokens --> Generate API token (Read & Write permisions)
+Security --> API Tokens --> Generate API token (Read & Write permissions)
 
 Copy token
 

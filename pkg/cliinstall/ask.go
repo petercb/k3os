@@ -9,10 +9,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/rancher/k3os/pkg/config"
-	"github.com/rancher/k3os/pkg/mode"
-	"github.com/rancher/k3os/pkg/questions"
-	"github.com/rancher/k3os/pkg/util"
+	"github.com/petercb/k3os/pkg/config"
+	"github.com/petercb/k3os/pkg/mode"
+	"github.com/petercb/k3os/pkg/questions"
+	"github.com/petercb/k3os/pkg/util"
 )
 
 func Ask(cfg *config.CloudConfig) (bool, error) {

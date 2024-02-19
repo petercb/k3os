@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-1. Build vagrant box image for libvirt using [Packer](https://www.packer.io/): 
+1. Build vagrant box image for libvirt using [Packer](https://www.packer.io/):
 
 ```bash
 packer build .
