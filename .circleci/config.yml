@@ -117,7 +117,7 @@ jobs:
     steps:
       - github/setup:
           version: "2.43.1"
-      - github/clone
+      - checkout
       - run:
           name: Create draft release
           command: >-
