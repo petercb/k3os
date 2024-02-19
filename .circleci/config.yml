@@ -151,7 +151,7 @@ workflows:
           draft: true
           prerelease: true
           tag: $CIRCLE_TAG
-          additional_args: --verify-tag --notes-from-tag
+          additional_args: --verify-tag
           version: "2.43.1"
           context: github
           filters: &filter-tags
