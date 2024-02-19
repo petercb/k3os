@@ -35,12 +35,14 @@ fi
 ARCH=${ARCH:-"amd64"}
 OS=${OS:-linux}
 TAG=${TAG:-"${VERSION}-${ARCH}"}
+TAG=${TAG//+/-}
 REPO=${CIRCLE_PROJECT_USERNAME:-petercb}
 IMAGE_NAME=${CIRCLE_PROJECT_REPONAME:-k3os}
 IMAGE_FQN="${REGISTRY}/${REPO}/${IMAGE_NAME}"
 
 echo "K3os Version = ${VERSION}"
 echo "K3s Version  = ${K3S_VERSION}"
+echo "Docker tag   = ${TAG}"
 echo "Branch       = ${BRANCH}"
 echo "Commit       = ${COMMIT}"
 echo "OS           = ${OS}"
