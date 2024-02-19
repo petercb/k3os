@@ -66,7 +66,8 @@ jobs:
                 registry: ghcr.io
                 image: $CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}
                 tag: $VERSION-$ARCH
-            - github/setup
+            - github/setup:
+                version: "2.43.1"
             - run:
                 name: Upload artifacts - $ARCH
                 command: >-
@@ -151,6 +152,7 @@ workflows:
           prerelease: true
           tag: $CIRCLE_TAG
           additional_args: --verify-tag --notes-from-tag
+          version: "2.43.1"
           context: github
           filters: &filter-tags
             branches:
