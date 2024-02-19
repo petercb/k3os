@@ -9,10 +9,6 @@ if [ "${CI:-}" = "true" ]; then
     CI_ARGS="--progress=plain --pull --build-arg BUILDKIT_INLINE_CACHE=1"
 fi
 
-if [ -z "${BRANCH}" ]; then
-    echo "Branch is null, assumed to be ${BRANCH:=master}"
-fi
-
 export DOCKER_BUILDKIT=1
 
 # Build k3os docker container

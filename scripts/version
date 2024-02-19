@@ -10,6 +10,16 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
 fi
 
 BRANCH="${CIRCLE_BRANCH:-$(git branch --show-current)}"
+if [ -z "${BRANCH}" ]; then
+    if [ -n "$CIRCLE_TAG" ]; then
+        echo "Branch is null but CIRCLE_TAG exists, assumed to be ${BRANCH:=master}"
+    else
+        echo "Branch is null, setting to ${BRANCH:=unknown}"
+    fi
+fi
+
+
+
 COMMIT=$(git rev-parse --short HEAD)
 GIT_TAG=${CIRCLE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
 VERSION=${GIT_TAG}
@@ -53,4 +63,5 @@ echo "Kernel URL   = ${KERNEL_URL}"
 
 if [ "${CIRCLECI:-}" = "true" ]; then
     echo "export VERSION=${VERSION}" >> "${BASH_ENV:-/dev/null}"
+    echo "export DOCKER_TAG=${TAG}" >> "${BASH_ENV:-/dev/null}"
 fi
