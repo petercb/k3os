@@ -98,17 +98,21 @@ jobs:
           docker-username: CIRCLE_PROJECT_USERNAME
           docker-password: GITHUB_TOKEN
       - run:
+          name: Set version
+          command: >-
+            echo "export DOCKER_TAG=${CIRCLE_TAG//+/-}" >> "${BASH_ENV}"
+      - run:
           name: Create multiarch manifest
           command: >-
             docker manifest create
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-amd64
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-arm64
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${DOCKER_TAG}
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${DOCKER_TAG}-amd64
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${DOCKER_TAG}-arm64
       - run:
           name: Push multiarch manifest
           command: >-
             docker manifest push
-            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
+            ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${DOCKER_TAG}
 
   draft-release:
     docker:
@@ -188,6 +192,7 @@ workflows:
           requires:
             - "Create github release"
       - assemble-manifest:
+          context: github
           filters: *filter-tags
           requires:
             - "Tagged AMD64 release"
