@@ -110,6 +110,24 @@ jobs:
             docker manifest push
             ghcr.io/$CIRCLE_PROJECT_USERNAME/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
 
+  draft-release:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - github/setup:
+          version: "2.43.1"
+      - github/clone
+      - run:
+          name: Create draft release
+          command: >-
+            gh release create "${CIRCLE_TAG}"
+            --draft
+            --prerelease
+            --generate-notes
+            --verify-tag
+
+
 workflows:
   feature:
     jobs:
@@ -146,13 +164,8 @@ workflows:
 
   tags:
     jobs:
-      - github/release:
+      - draft-release:
           name: Create github release
-          draft: true
-          prerelease: true
-          tag: $CIRCLE_TAG
-          additional_args: --verify-tag
-          version: "2.43.1"
           context: github
           filters: &filter-tags
             branches:
