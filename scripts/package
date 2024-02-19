@@ -5,7 +5,7 @@ source "$(dirname $0)/version"
 
 CI_ARGS=""
 if [ "${CI:-}" = "true" ]; then
-    CI_ARGS="--progress=plain"
+    CI_ARGS="--progress=plain --pull"
 fi
 
 # Collect build artifacts
@@ -18,7 +18,7 @@ docker build \
     --build-arg "KERNEL_URL=${KERNEL_URL}" \
     --build-arg "VERSION=${VERSION}" \
     --target=output \
-    -f "$(dirname $0)/../Dockerfile" \
+    --file "$(dirname $0)/../Dockerfile" \
     "$(dirname $0)/.."
 
 DIST_DIR="$(dirname $0)/../dist/"

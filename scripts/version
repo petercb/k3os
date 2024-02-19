@@ -16,7 +16,7 @@ VERSION=${GIT_TAG}
 if [[ -n "${DIRTY}" ]]; then
     VERSION=dev
 elif [[ -z "${VERSION}" ]]; then
-    VERSION="$(git describe --always --tags)${DIRTY}"
+    VERSION="$(git describe --always --tags --abbrev=0)${BRANCH}"
 fi
 
 if [ -z "${ARCH:-}" ]; then
