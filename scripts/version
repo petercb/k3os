@@ -57,4 +57,5 @@ echo "Kernel URL   = ${KERNEL_URL}"
 
 if [ "${CIRCLECI:-}" = "true" ]; then
     echo "export VERSION=${VERSION}" >> "${BASH_ENV:-/dev/null}"
+    echo "export DOCKER_TAG=${TAG}" >> "${BASH_ENV:-/dev/null}"
 fi
