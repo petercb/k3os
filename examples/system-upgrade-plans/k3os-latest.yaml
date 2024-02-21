@@ -12,10 +12,10 @@ spec:
 
   # The value for `channel` is assumed to be a URL that returns HTTP 302 with the last path element of the value
   # returned in the Location header assumed to be an image tag.
-  # channel: https://github.com/petercb/k3os/releases/latest
+  channel: https://github.com/petercb/k3os/releases/latest
 
   # Providing a value for `version` will prevent polling/resolution of the `channel` if specified.
-  version: v0.23.17+k3s1r0
+  # version: v0.23.17-k3s1-r1
 
   # Select which nodes this plan can be applied to.
   nodeSelector:
