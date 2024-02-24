@@ -15,7 +15,7 @@ spec:
   channel: https://github.com/petercb/k3os/releases/latest
 
   # Providing a value for `version` will prevent polling/resolution of the `channel` if specified.
-  # version: v0.23.17-k3s1-r1
+  # version: v0.26.13-k3s2-r1
 
   # Select which nodes this plan can be applied to.
   nodeSelector:

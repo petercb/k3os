@@ -16,7 +16,7 @@ variable "iso_checksum" {
 
 variable "iso_url" {
   type    = string
-  default = "https://github.com/rancher/k3os/releases/download/v0.20.7-k3s1r0/k3os-amd64.iso"
+  default = "https://github.com/petercb/k3os/releases/latest/download/k3os-amd64.iso"
 }
 
 variable "password" {
