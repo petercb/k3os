@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: "${K3S_VERSION:=v1.26.13+k3s2}"
+: "${K3S_VERSION:=v1.27.11+k3s1}"
 : "${KERNEL_VERSION:=5.15.0-76-generic}"
 : "${KERNEL_URL:=https://github.com/batwingaero/k3os-kernel/releases/download/5.15.0-76.83-bluekrypto1}"
 
