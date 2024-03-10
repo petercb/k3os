@@ -382,12 +382,10 @@ These scripts have been deprecated as of v0.9.0 are still on the system at `/usr
 
 ## Building
 
-To build k3OS you just need Docker and then run `make`. All artifacts will be put in `./dist/artifacts`.
-If you are running on Linux you can run `./scripts/run` to run a VM of k3OS in the terminal. To exit
-the instance type `CTRL+a c` to get the qemu console and then `q` for quit.
+To build k3OS you just need Docker and then run `./scripts/package`. All artifacts will be put in `./dist/`.
 
-The source for the kernel is in `https://github.com/petercb/k3os-kernel` and similarly you
-just need to have Docker and run `make` to compile the kernel.
+If you are running on Linux you can run `./scripts/run-qemu` to run a VM of k3OS in the terminal. To exit
+the instance type `CTRL+a c` to get the qemu console and then `q` for quit.
 
 ## Configuration Reference
 

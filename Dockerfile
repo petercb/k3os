@@ -90,18 +90,6 @@ RUN <<-EOF
     fi
 EOF
 
-### gobuild ###
-FROM golang:1.20.12-alpine3.17 AS gobuild
-
-ARG VERSION
-ENV LINKFLAGS "-extldflags -static -s"
-ENV BUILD_VERSION_FLAG "-X github.com/petercb/k3os/pkg/version.Version=$VERSION"
-ENV CGO_ENABLED=0
-
-SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
-
-WORKDIR /output
-
 
 ### 10k3s ###
 FROM base AS k3s
@@ -201,27 +189,24 @@ EOF
 
 
 ### 20progs ###
-FROM gobuild AS linuxkit
+FROM golang:1.20.12-alpine3.17 AS linuxkit
+
 ARG LINUXKIT_VERSION=v1.0.1
+
+ENV CGO_ENABLED=0
 ENV GO111MODULE off
+
+SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
+
+WORKDIR /output
+
 ADD https://github.com/linuxkit/linuxkit.git#${LINUXKIT_VERSION} \
-    "$GOPATH/src/github.com/linuxkit/linuxkit"
+    "${GOPATH}/src/github.com/linuxkit/linuxkit"
 
-WORKDIR $GOPATH/src/github.com/linuxkit/linuxkit/pkg/metadata
+WORKDIR ${GOPATH}/src/github.com/linuxkit/linuxkit/pkg/metadata
 RUN go build \
-        -ldflags "$BUILD_VERSION_FLAG $LINKFLAGS" \
+        -ldflags "-extldflags -static -s" \
         -o /output/metadata
-
-FROM gobuild AS k3os
-COPY go.mod $GOPATH/src/github.com/petercb/k3os/
-COPY go.sum $GOPATH/src/github.com/petercb/k3os/
-COPY pkg/ $GOPATH/src/github.com/petercb/k3os/pkg/
-COPY main.go $GOPATH/src/github.com/petercb/k3os/
-WORKDIR $GOPATH/src/github.com/petercb/k3os
-RUN go build \
-        -ldflags "$BUILD_VERSION_FLAG $LINKFLAGS" \
-        -mod=readonly \
-        -o /output/k3os
 
 
 ### 20rootfs ###
@@ -331,10 +316,17 @@ EOF
 ### 30bin ###
 FROM util AS bin
 
+ARG K3OS_BIN_VERSION=v1.3.1
+ARG K3OS_BIN_REPO=https://github.com/petercb/k3os-bin
+ARG TARGETARCH
+
 COPY --from=rootfs /output/rootfs.squashfs /usr/src/
 COPY install.sh /output/k3os-install.sh
-COPY --from=k3os /output/k3os /output/k3os
+ADD ${K3OS_BIN_REPO}/releases/download/${K3OS_BIN_VERSION}/k3os-bin_linux_${TARGETARCH}.tar.gz /tmp/k3os-bin.tar.gz
+
 RUN <<-EOF
+    tar xf /tmp/k3os-bin.tar.gz -C /output/
+    test -f /output/k3os
     printf "_sqmagic_" >> /output/k3os
     cat /usr/src/rootfs.squashfs >> /output/k3os
 EOF
