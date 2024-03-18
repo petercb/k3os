@@ -28,3 +28,11 @@ fileExistenceTests:
   - name: kernel
     path: "/k3os/system/kernel/current/kernel.squashfs"
     shouldExist: true
+
+commandTests:
+  - name: k3os
+    command: "k3os"
+    args:
+      - help
+    expectedOutput:
+      - NAME

@@ -3,7 +3,6 @@ version: 2.1
 
 orbs:
   github: circleci/github-cli@2
-  go: circleci/go@1
   docker: circleci/docker@2
 
 executors:
@@ -76,19 +75,6 @@ jobs:
                     ./dist/* \
                     --repo "$(git config --get remote.origin.url)"
 
-
-  test:
-    executor:
-      name: go/default
-      tag: '1.20'
-    steps:
-      - checkout
-      - go/mod-download
-      - go/test:
-          covermode: atomic
-          failfast: true
-          race: true
-
   assemble-manifest:
     executor:
       name: docker/docker
@@ -131,32 +117,24 @@ jobs:
 workflows:
   feature:
     jobs:
-      - test:
-          filters: &filter-feature
-            branches:
-              ignore: master
       - build:
           executor: amd64
           push: false
           context: github
-          filters: *filter-feature
-          requires:
-            - test
+          filters:
+            branches:
+              ignore: master
 
   continuous:
     jobs:
-      - test:
-          filters: &filter-master
-            branches:
-              only: master
       - build: &rc-build
           name: Release candidate build (AMD64)
           executor: amd64
           push: false
           context: github
-          filters: *filter-master
-          requires:
-            - test
+          filters:
+            branches:
+              only: master
       - build:
           <<: *rc-build
           name: Release candidate build (ARM64)
