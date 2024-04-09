@@ -28,7 +28,7 @@ It draws heavy inspiration from [BlueKrypto's](https://github.com/BlueKrypto/k3o
 ## Quick Start
 
 Download the ISO from the latest [release](https://github.com/petercb/k3os/releases) and run it
-in VMware, VirtualBox, KVM, or bhyve. The server will automatically start a single node Kubernetes cluster.
+in VirtualBox, KVM, or bhyve. The server will automatically start a single node Kubernetes cluster.
 Log in with the user `rancher` and run `kubectl`. This is a "live install" running from the ISO media
 and changes will not persist after reboot.
 
@@ -85,7 +85,7 @@ Persistent changes should be kept in `/var`, `/usr/local`, `/home`, or `/opt`.
 ### Upstream Distros
 
 Most of the user-space binaries comes from Alpine and are repackaged for k3OS. Currently the
-kernel source is coming from Ubuntu 20.04 LTS. Some code and a lot of inspiration came from
+kernel source is coming from Ubuntu 22.04 LTS. Some code and a lot of inspiration came from
 [LinuxKit](https://github.com/linuxkit/linuxkit)
 
 ## Installation
