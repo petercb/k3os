@@ -1,22 +1,45 @@
 #!/bin/bash
-set -e
+
+set -eu
 
 . "$(dirname $0)/version"
 
 # unique value per vm instance
-: "${STATE_DIR:=$(dirname $0)/../build/state/k3os-${TAG}}"
-
-if [ "${ARCH}" = "amd64" ]; then
-    QEMU_SYSTEM="qemu-system-x86_64"
-elif [ "${ARCH}" = "arm64" ]; then
-    QEMU_SYSTEM="qemu-system-aarch64"
-else
-    QEMU_SYSTEM="qemu-system-${ARCH}"
-fi
-
-if [ ! -d "${STATE_DIR}" ]; then
+if [ ! -d "${STATE_DIR:=$(dirname $0)/../build/state/k3os-${TAG}}" ]; then
     mkdir -p "${STATE_DIR}"
 fi
+
+case "${ARCH}" in
+    amd64)
+        QEMU_SYSTEM="qemu-system-x86_64"
+        ;;
+    arm64)
+        QEMU_SYSTEM="qemu-system-aarch64"
+        ;;
+    *)
+        QEMU_SYSTEM="qemu-system-${ARCH}"
+        ;;
+esac
+
+MACHINE="accel=${ACCEL:=hax:kvm:hvf:tcg}"
+EXTRA_OPTS=""
+if [ "${ARCH}" != "$(go env GOHOSTARCH)" ]; then
+    MACHINE="type=virt,gic-version=max"
+    EXTRA_OPTS+=" -cpu max"
+    if [ "${ARCH}" == "arm64" ]; then
+        EXTRA_OPTS+=" -accel tcg,thread=multi"
+        if [ ! -e "${VARSTORE_IMG:=${STATE_DIR}/varstore.img}" ]; then
+            truncate -s 64m "${VARSTORE_IMG}"
+        fi
+        if [ ! -e "${EFI_IMG:=${STATE_DIR}/efi.img}" ]; then
+            truncate -s 64m "${EFI_IMG}"
+            dd if=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd of="${EFI_IMG}" conv=notrunc
+        fi
+        EXTRA_OPTS+=" -drive if=pflash,format=raw,file=${EFI_IMG},readonly=on"
+        EXTRA_OPTS+=" -drive if=pflash,format=raw,file=${VARSTORE_IMG}"
+    fi
+fi
+
 if [ ! -e "${STATE_DIR}/${DISK_NAME:=vda.img}" ]; then
     qemu-img create -f qcow2 "${STATE_DIR}/${DISK_NAME}" "${DISK_SIZE:=8g}"
 fi
@@ -35,16 +58,19 @@ fi
 # DISK_NAME=test.img ./scripts/run-qemu k3os.password=rancher k3os.mode=live
 
 exec $QEMU_SYSTEM \
-    -m ${MEMORY:=2048} \
-    -machine accel=${ACCEL:="hax:kvm:hvf:tcg"} \
+    -m "${MEMORY:=2G}" \
+    -machine "${MACHINE}" \
+    -smp 2 \
     -nographic \
     -serial mon:stdio \
     -rtc base=utc,clock=rt \
-    -chardev "socket,path=${STATE_DIR}/qga.sock,server,nowait,id=qga0" \
+    -chardev "socket,path=${STATE_DIR}/qga.sock,server=on,wait=off,id=qga0" \
     -device virtio-serial \
     -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
     -kernel "$(dirname $0)/../dist/k3os-vmlinuz-${ARCH}" \
     -initrd "$(dirname $0)/../dist/k3os-initrd-${ARCH}" \
-    -drive "if=ide,media=cdrom,file=$(dirname $0)/../dist/k3os-${ARCH}.iso" \
-    -drive "if=virtio,media=disk,file=${STATE_DIR}/${DISK_NAME}" \
+    -drive "if=none,id=cdrom,media=cdrom,file=$(dirname $0)/../dist/k3os-${ARCH}.iso" \
+    -device virtio-blk,drive=cdrom,bootindex=1 \
+    -drive "if=virtio,id=disk0,media=disk,file=${STATE_DIR}/${DISK_NAME}" \
+    ${EXTRA_OPTS} \
     -append "console=${CONSOLE:=ttyS0} loglevel=${LOGLEVEL:=4} printk.devkmsg=${PRINTK_DEVKMSG:=on} ${*:-k3os.mode=live}"
