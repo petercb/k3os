@@ -99,27 +99,47 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG KERNEL_VERSION=5.15.0-101.2
+ARG FLATCAR_VERSION=3975.2.2
+
+COPY --from=bin /output/ /tmp/k3os/
 
 WORKDIR /output
 
 ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs \
-    /output/kernel.squashfs
+    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar_production_image.vmlinuz \
+    /output/vmlinuz
 
-COPY --from=bin /output/ /usr/src/k3os/
+ADD --link \
+    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar-container.tar.gz \
+    /tmp/
+
+WORKDIR /tmp/flatcar
+
+RUN <<-EOF
+    tar xf /tmp/flatcar-container.tar.gz
+    cp usr/lib/modules/*/build/include/config/kernel.release /output/version
+EOF
 
 WORKDIR /usr/src/kernel
 
 # hadolint ignore=DL4006
 RUN <<-EOF
-    unsquashfs -n -d . /output/kernel.squashfs
+    mkdir -p lib
+    mv /tmp/flatcar/usr/lib/firmware ./lib/
+    mv /tmp/flatcar/usr/lib/modules ./lib/
+    cp /output/version ./
+    cp /output/vmlinuz ./
+    mksquashfs . /output/kernel.squashfs
+    KERNEL_VERSION="$(cat /output/version)"
+    export KERNEL_VERSION
+    find lib/modules -name \*.ko.xz > /tmp/initrd-modules
+    echo "lib/modules/${KERNEL_VERSION}/modules.order" >> /tmp/initrd-modules
+    echo "lib/modules/${KERNEL_VERSION}/modules.builtin" >> /tmp/initrd-modules
+    find lib/firmware -type f > /tmp/initrd-firmware
     mkdir -p /usr/src/initrd/lib
-    tar cf - -T initrd-modules -T initrd-firmware \
+    tar cf - -T /tmp/initrd-modules -T /tmp/initrd-firmware \
         | tar xf - -C /usr/src/initrd/
-    depmod -b /usr/src/initrd "$(cat version)"
-    cp version /output/
-    cp vmlinuz /output/
+    depmod -b /usr/src/initrd "${KERNEL_VERSION}"
 EOF
 
 WORKDIR /usr/src/initrd
@@ -127,11 +147,13 @@ WORKDIR /usr/src/initrd
 # hadolint ignore=DL4006
 RUN <<-EOF
     mkdir -p k3os/system/k3os/${VERSION}
-    cp /usr/src/k3os/k3os k3os/system/k3os/${VERSION}
+    cp /tmp/k3os/k3os k3os/system/k3os/${VERSION}
     ln -s ${VERSION} k3os/system/k3os/current
     ln -s /k3os/system/k3os/current/k3os init
     find . | cpio -H newc -o | gzip -c -1 > /output/initrd
 EOF
+
+
 
 
 ### 50package ###
@@ -183,7 +205,8 @@ COPY --from=package /output/ /usr/src/iso/
 WORKDIR /output
 RUN grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
         -volid K3OS \
-        -joliet on \
+        -joliet off \
+        -hfsplus off \
     # grub-mkrescue doesn't exit non-zero on failure
     && [ -e /output/k3os.iso ]
 
