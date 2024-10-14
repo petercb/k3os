@@ -60,7 +60,7 @@ EOF
 COPY install.sh /usr/src/image/libexec/k3os/install
 RUN <<-EOF
     sed -i -e "s/%VERSION%/${VERSION}/g" \
-        -e "s/%TARGETARCH%/${TARGETARCH}/g" \
+        -e "s/%ARCH%/${TARGETARCH}/g" \
         /usr/src/image/lib/os-release
     mkdir -p /output
     mksquashfs /usr/src/image /output/rootfs.squashfs
