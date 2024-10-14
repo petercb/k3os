@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.6.0
+# syntax=docker/dockerfile:1
 
 ### BASE ###
 FROM alpine:3.17.7 AS util
@@ -24,10 +24,14 @@ ARG TARGETARCH
 ENV TARGETARCH ${TARGETARCH}
 ARG K3S_VERSION=v1.27.11+k3s1
 
-ADD https://raw.githubusercontent.com/rancher/k3s/${K3S_VERSION}/install.sh /output/install.sh
+ADD --link \
+    https://raw.githubusercontent.com/rancher/k3s/${K3S_VERSION}/install.sh \
+    /output/install.sh
+
 ENV INSTALL_K3S_VERSION=${K3S_VERSION} \
     INSTALL_K3S_SKIP_START=true \
     INSTALL_K3S_BIN_DIR=/output
+
 RUN <<-EOF
     chmod +x /output/install.sh
     /output/install.sh
@@ -41,7 +45,9 @@ ARG BASE_VERSION=v1.1.0
 ARG VERSION
 ARG TARGETARCH
 
-ADD https://github.com/petercb/k3os-base/releases/download/${BASE_VERSION}/userspace-${TARGETARCH}.tar.gz /tmp/
+ADD --link \
+    https://github.com/petercb/k3os-base/releases/download/${BASE_VERSION}/userspace-${TARGETARCH}.tar.gz \
+    /tmp/
 
 RUN tar xf /tmp/userspace-${TARGETARCH}.tar.gz -C /
 
@@ -76,7 +82,9 @@ ARG TARGETARCH
 
 COPY --from=rootfs /output/rootfs.squashfs /usr/src/
 COPY install.sh /output/k3os-install.sh
-ADD ${K3OS_BIN_REPO}/releases/download/${K3OS_BIN_VERSION}/k3os-bin_linux_${TARGETARCH}.tar.gz /tmp/k3os-bin.tar.gz
+ADD --link \
+    ${K3OS_BIN_REPO}/releases/download/${K3OS_BIN_VERSION}/k3os-bin_linux_${TARGETARCH}.tar.gz \
+    /tmp/k3os-bin.tar.gz
 
 RUN <<-EOF
     tar xf /tmp/k3os-bin.tar.gz -C /output/
@@ -95,7 +103,9 @@ ARG KERNEL_VERSION=5.15.0-101.2
 
 WORKDIR /output
 
-ADD https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs /output/kernel.squashfs
+ADD --link \
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs \
+    /output/kernel.squashfs
 
 COPY --from=bin /output/ /usr/src/k3os/
 
