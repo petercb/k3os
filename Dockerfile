@@ -1,27 +1,22 @@
 # syntax=docker/dockerfile:1
 
+ARG ALPINE_RELEASE=3.17.7
+
 ### BASE ###
-FROM alpine:3.17.7 AS util
+FROM alpine:${ALPINE_RELEASE} AS util
 SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
 
-# hadolint ignore=DL3018,DL3019
-RUN <<-EOF
-    apk update
-    apk add squashfs-tools openrc xorriso grub grub-efi mtools
-    if [ "$TARGETARCH" = "amd64" ]; then
-        apk add grub-bios
-    fi
-    rm -rf /var/cache/apk/*
-EOF
+# hadolint ignore=DL3018
+RUN apk add --no-progress --no-cache squashfs-tools openrc xorriso mtools
 
 
 ### 10k3s ###
 FROM util AS k3s
 
 ARG TARGETARCH
-ENV TARGETARCH ${TARGETARCH}
+ENV TARGETARCH=${TARGETARCH}
 ARG K3S_VERSION=v1.28.14+k3s1
 
 ADD --link \
@@ -76,7 +71,7 @@ EOF
 ### 30bin ###
 FROM util AS bin
 
-ARG K3OS_BIN_VERSION=v1.3.2
+ARG K3OS_BIN_VERSION=v1.4.3
 ARG K3OS_BIN_REPO=https://github.com/petercb/k3os-bin
 ARG TARGETARCH
 
@@ -99,60 +94,47 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG FLATCAR_VERSION=3975.2.2
 
-COPY --from=bin /output/ /tmp/k3os/
+COPY --from=bin --chmod=755 /output/k3os /k3os/system/k3os/${VERSION}/
+COPY files/mkinitfs.conf /etc/mkinitfs/
+COPY files/mkinitfs-k3os.files /etc/mkinitfs/features.d/k3os.files
 
-WORKDIR /output
-
-ADD --link \
-    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar_production_image.vmlinuz \
-    /output/vmlinuz
-
-ADD --link \
-    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar-container.tar.gz \
-    /tmp/
-
-WORKDIR /tmp/flatcar
-
+WORKDIR /tmp
+# hadolint ignore=DL3003,DL3018,DL3019,DL4006
 RUN <<-EOF
-    tar xf /tmp/flatcar-container.tar.gz
-    cp usr/lib/modules/*/build/include/config/kernel.release /output/version
+    apk update
+    apk add --no-progress --virtual .mkinitfs mkinitfs
+    (cd /k3os/system/k3os && ln -s ${VERSION} current)
+    find /etc/mkinitfs/features.d -type f -name '*.files' ! -name k3os.files -delete
+    apk add --no-progress --virtual .kernel linux-lts
+    mkdir -p /output
+    cp /boot/vmlinuz-lts /output/vmlinuz
+    basename /lib/modules/*-lts > /output/version
+    mkdir initrd
+    (cd initrd && zcat /boot/initramfs-lts | cpio -idm)
+    mkdir -p /usr/src/kernel/lib
+    cp /boot/System.map-lts /usr/src/kernel/System.map
+    cp /boot/config-lts /usr/src/kernel/config
+    cp -r /lib/firmware /usr/src/kernel/lib/
+    cp -r /lib/modules /usr/src/kernel/lib/
+    apk del --no-progress .mkinitfs .kernel
+    rm -rf /var/cache/apk/*
 EOF
 
-WORKDIR /usr/src/kernel
-
+WORKDIR /tmp/initrd
 # hadolint ignore=DL4006
 RUN <<-EOF
-    mkdir -p lib
-    mv /tmp/flatcar/usr/lib/firmware ./lib/
-    mv /tmp/flatcar/usr/lib/modules ./lib/
-    cp /output/version ./
-    cp /output/vmlinuz ./
-    mksquashfs . /output/kernel.squashfs
-    KERNEL_VERSION="$(cat /output/version)"
-    export KERNEL_VERSION
-    find lib/modules -name \*.ko.xz > /tmp/initrd-modules
-    echo "lib/modules/${KERNEL_VERSION}/modules.order" >> /tmp/initrd-modules
-    echo "lib/modules/${KERNEL_VERSION}/modules.builtin" >> /tmp/initrd-modules
-    find lib/firmware -type f > /tmp/initrd-firmware
-    mkdir -p /usr/src/initrd/lib
-    tar cf - -T /tmp/initrd-modules -T /tmp/initrd-firmware \
-        | tar xf - -C /usr/src/initrd/
-    depmod -b /usr/src/initrd "${KERNEL_VERSION}"
-EOF
-
-WORKDIR /usr/src/initrd
-
-# hadolint ignore=DL4006
-RUN <<-EOF
-    mkdir -p k3os/system/k3os/${VERSION}
-    cp /tmp/k3os/k3os k3os/system/k3os/${VERSION}
-    ln -s ${VERSION} k3os/system/k3os/current
-    ln -s /k3os/system/k3os/current/k3os init
+    rm -rf .modloop bin etc init media newroot sbin
+    ln -s k3os/system/k3os/current/k3os init
     find . | cpio -H newc -o | gzip -c -1 > /output/initrd
 EOF
 
+WORKDIR /usr/src/kernel
+RUN <<-EOF
+    cp /output/version ./
+    cp /output/vmlinuz ./
+    mksquashfs . /output/kernel.squashfs -no-progress
+EOF
 
 
 
@@ -203,12 +185,19 @@ COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/iso/
 
 WORKDIR /output
-RUN grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
+# grub-mkrescue doesn't exit non-zero on failure
+# hadolint ignore=DL3018,SC2086
+RUN <<-EOF
+    PKGS="grub grub-efi"
+    [ "$TARGETARCH" = "amd64" ] && PKGS="${PKGS} grub-bios"
+    apk add --no-cache --no-progress --virtual .grub ${PKGS}
+    grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
         -volid K3OS \
         -joliet off \
         -hfsplus off \
-    # grub-mkrescue doesn't exit non-zero on failure
     && [ -e /output/k3os.iso ]
+    apk del --no-progress --no-cache .grub
+EOF
 
 
 ### 80tar ###
@@ -237,6 +226,6 @@ RUN find . -type f -exec sha256sum {} \; > sha256sum-${TARGETARCH}.txt
 ### Main ###
 FROM scratch AS image
 COPY --from=package /output/k3os/system/ /k3os/system/
-ENV PATH /k3os/system/k3os/current:/k3os/system/k3s/current:${PATH}
+ENV PATH=/k3os/system/k3os/current:/k3os/system/k3s/current:${PATH}
 ENTRYPOINT ["k3os"]
 CMD ["help"]
