@@ -9,7 +9,7 @@ ARG TARGETARCH
 # hadolint ignore=DL3018,DL3019
 RUN <<-EOF
     apk update
-    apk add squashfs-tools openrc xorriso grub grub-efi mtools
+    apk add cpio squashfs-tools openrc xorriso grub grub-efi mtools
     if [ "$TARGETARCH" = "amd64" ]; then
         apk add grub-bios
     fi
@@ -21,7 +21,6 @@ EOF
 FROM util AS k3s
 
 ARG TARGETARCH
-ENV TARGETARCH ${TARGETARCH}
 ARG K3S_VERSION=v1.28.14+k3s1
 
 ADD --link \
@@ -76,7 +75,7 @@ EOF
 ### 30bin ###
 FROM util AS bin
 
-ARG K3OS_BIN_VERSION=v1.3.2
+ARG K3OS_BIN_VERSION=v1.3.1
 ARG K3OS_BIN_REPO=https://github.com/petercb/k3os-bin
 ARG TARGETARCH
 
@@ -99,60 +98,36 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG FLATCAR_VERSION=3975.2.2
+ARG KERNEL_VERSION=5.15.0-101.2
 
-COPY --from=bin /output/ /tmp/k3os/
+COPY --from=bin /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
-WORKDIR /output
+WORKDIR /usr/src/initrd/k3os/system/k3os
+RUN ln -s ${VERSION} current
+
+WORKDIR /usr/src/initrd
+# hadolint ignore=DL4006
+RUN ln -s k3os/system/k3os/current/k3os init
 
 ADD --link \
-    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar_production_image.vmlinuz \
-    /output/vmlinuz
-
-ADD --link \
-    https://stable.release.flatcar-linux.net/${TARGETARCH}-usr/${FLATCAR_VERSION}/flatcar-container.tar.gz \
-    /tmp/
-
-WORKDIR /tmp/flatcar
-
-RUN <<-EOF
-    tar xf /tmp/flatcar-container.tar.gz
-    cp usr/lib/modules/*/build/include/config/kernel.release /output/version
-EOF
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs \
+    /output/kernel.squashfs
 
 WORKDIR /usr/src/kernel
 
-# hadolint ignore=DL4006
+# hadolint ignore=DL3003,DL4006
 RUN <<-EOF
-    mkdir -p lib
-    mv /tmp/flatcar/usr/lib/firmware ./lib/
-    mv /tmp/flatcar/usr/lib/modules ./lib/
-    cp /output/version ./
-    cp /output/vmlinuz ./
-    mksquashfs . /output/kernel.squashfs
-    KERNEL_VERSION="$(cat /output/version)"
-    export KERNEL_VERSION
-    find lib/modules -name \*.ko.xz > /tmp/initrd-modules
-    echo "lib/modules/${KERNEL_VERSION}/modules.order" >> /tmp/initrd-modules
-    echo "lib/modules/${KERNEL_VERSION}/modules.builtin" >> /tmp/initrd-modules
-    find lib/firmware -type f > /tmp/initrd-firmware
+    unsquashfs -n -d . /output/kernel.squashfs
     mkdir -p /usr/src/initrd/lib
-    tar cf - -T /tmp/initrd-modules -T /tmp/initrd-firmware \
+    tar cf - -T initrd-modules -T initrd-firmware \
         | tar xf - -C /usr/src/initrd/
-    depmod -b /usr/src/initrd "${KERNEL_VERSION}"
+    depmod -b /usr/src/initrd "$(cat version)"
+    cp version /output/
+    cp vmlinuz /output/
+    (cd /usr/src/initrd && find . | cpio -H newc -o | gzip -c -1 > /output/initrd)
+    rm -rf /usr/src/initrd
+    rm -rf ./*
 EOF
-
-WORKDIR /usr/src/initrd
-
-# hadolint ignore=DL4006
-RUN <<-EOF
-    mkdir -p k3os/system/k3os/${VERSION}
-    cp /tmp/k3os/k3os k3os/system/k3os/${VERSION}
-    ln -s ${VERSION} k3os/system/k3os/current
-    ln -s /k3os/system/k3os/current/k3os init
-    find . | cpio -H newc -o | gzip -c -1 > /output/initrd
-EOF
-
 
 
 
@@ -237,6 +212,6 @@ RUN find . -type f -exec sha256sum {} \; > sha256sum-${TARGETARCH}.txt
 ### Main ###
 FROM scratch AS image
 COPY --from=package /output/k3os/system/ /k3os/system/
-ENV PATH /k3os/system/k3os/current:/k3os/system/k3s/current:${PATH}
+ENV PATH=/k3os/system/k3os/current:/k3os/system/k3s/current:${PATH}
 ENTRYPOINT ["k3os"]
 CMD ["help"]
