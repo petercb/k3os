@@ -6,15 +6,8 @@ SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
 
-# hadolint ignore=DL3018,DL3019
-RUN <<-EOF
-    apk update
-    apk add cpio squashfs-tools openrc xorriso grub grub-efi mtools
-    if [ "$TARGETARCH" = "amd64" ]; then
-        apk add grub-bios
-    fi
-    rm -rf /var/cache/apk/*
-EOF
+# hadolint ignore=DL3018
+RUN apk add --no-cache --no-progress mtools openrc squashfs-tools xorriso
 
 
 ### 10k3s ###
@@ -75,7 +68,7 @@ EOF
 ### 30bin ###
 FROM util AS bin
 
-ARG K3OS_BIN_VERSION=v1.3.1
+ARG K3OS_BIN_VERSION=v1.4.3
 ARG K3OS_BIN_REPO=https://github.com/petercb/k3os-bin
 ARG TARGETARCH
 
@@ -106,7 +99,6 @@ WORKDIR /usr/src/initrd/k3os/system/k3os
 RUN ln -s ${VERSION} current
 
 WORKDIR /usr/src/initrd
-# hadolint ignore=DL4006
 RUN ln -s k3os/system/k3os/current/k3os init
 
 ADD --link \
@@ -178,12 +170,19 @@ COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/iso/
 
 WORKDIR /output
-RUN grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
+# grub-mkrescue doesn't exit non-zero on failure
+# hadolint ignore=DL3018,SC2086
+RUN <<-EOF
+    PKGS="grub grub-efi"
+    [ "$TARGETARCH" = "amd64" ] && PKGS="${PKGS} grub-bios"
+    apk add --no-cache --no-progress ${PKGS}
+    grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
         -volid K3OS \
         -joliet off \
         -hfsplus off \
-    # grub-mkrescue doesn't exit non-zero on failure
     && [ -e /output/k3os.iso ]
+EOF
+
 
 
 ### 80tar ###
