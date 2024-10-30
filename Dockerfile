@@ -9,7 +9,7 @@ SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 ARG TARGETARCH
 
 # hadolint ignore=DL3018
-RUN apk add --no-progress --no-cache squashfs-tools openrc xorriso mtools
+RUN apk add --no-progress --no-cache cpio squashfs-tools openrc xorriso mtools
 
 
 ### 10k3s ###
@@ -95,45 +95,43 @@ FROM util AS kernel
 ARG TARGETARCH
 ARG VERSION
 
-COPY --from=bin --chmod=755 /output/k3os /k3os/system/k3os/${VERSION}/
-COPY files/mkinitfs.conf /etc/mkinitfs/
-COPY files/mkinitfs-k3os.files /etc/mkinitfs/features.d/k3os.files
+COPY --from=bin --chmod=755 /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
+WORKDIR /usr/src/initrd/k3os/system/k3os
+RUN ln -s ${VERSION} current
+
+WORKDIR /usr/src/initrd
+RUN ln -s k3os/system/k3os/current/k3os init
+
+COPY files/mkinitfs.conf /etc/mkinitfs/
+
+WORKDIR /output
+WORKDIR /usr/src/kernel/lib
+WORKDIR /usr/src/initrd/lib
 WORKDIR /tmp
 # hadolint ignore=DL3003,DL3018,DL3019,DL4006
 RUN <<-EOF
-    apk update
-    apk add --no-progress --virtual .mkinitfs mkinitfs
-    (cd /k3os/system/k3os && ln -s ${VERSION} current)
-    find /etc/mkinitfs/features.d -type f -name '*.files' ! -name k3os.files -delete
-    apk add --no-progress --virtual .kernel linux-lts
-    mkdir -p /output
+    apk add --no-cache --no-progress --virtual .kernel linux-lts
     cp /boot/vmlinuz-lts /output/vmlinuz
     basename /lib/modules/*-lts > /output/version
     mkdir initrd
-    (cd initrd && zcat /boot/initramfs-lts | cpio -idm)
-    mkdir -p /usr/src/kernel/lib
+    (
+        cd initrd && \
+        zcat /boot/initramfs-lts | cpio -idm && \
+        mv lib/firmware lib/modules /usr/src/initrd/lib/
+    )
+    rm -rf initrd
+    (cd /usr/src/initrd && find . | cpio -H newc -o | gzip -c -1 > /output/initrd)
+    rm -rf /usr/src/initrd/lib/*
     cp /boot/System.map-lts /usr/src/kernel/System.map
     cp /boot/config-lts /usr/src/kernel/config
     cp -r /lib/firmware /usr/src/kernel/lib/
     cp -r /lib/modules /usr/src/kernel/lib/
-    apk del --no-progress .mkinitfs .kernel
-    rm -rf /var/cache/apk/*
-EOF
-
-WORKDIR /tmp/initrd
-# hadolint ignore=DL4006
-RUN <<-EOF
-    rm -rf .modloop bin etc init media newroot sbin
-    ln -s k3os/system/k3os/current/k3os init
-    find . | cpio -H newc -o | gzip -c -1 > /output/initrd
-EOF
-
-WORKDIR /usr/src/kernel
-RUN <<-EOF
-    cp /output/version ./
-    cp /output/vmlinuz ./
-    mksquashfs . /output/kernel.squashfs -no-progress
+    cp /output/version /usr/src/kernel/
+    cp /output/vmlinuz /usr/src/kernel/
+    mksquashfs /usr/src/kernel /output/kernel.squashfs -no-progress
+    rm -rf /usr/src/kernel
+    apk del --no-progress .kernel
 EOF
 
 
