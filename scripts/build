@@ -18,7 +18,8 @@ docker build \
     --tag "${IMAGE_FQN}:${TAG}" \
     --tag "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --build-arg "VERSION=${VERSION}" \
-    --build-arg "ALPINE_RELEASE=${ALPINE_RELEASE}" \
+    --build-arg "ALPINE_ARCH=${ALPINE_ARCH}" \
+    --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --cache-from "${IMAGE_FQN}:${TAG}" \
     --target=image \
@@ -32,7 +33,8 @@ docker build \
     --tag "${IMAGE_FQN}-iso:${TAG}" \
     --tag "${IMAGE_FQN}-iso:${BRANCH}-${ARCH}" \
     --build-arg "VERSION=${VERSION}" \
-    --build-arg "ALPINE_RELEASE=${ALPINE_RELEASE}" \
+    --build-arg "ALPINE_ARCH=${ALPINE_ARCH}" \
+    --build-arg "ALPINE_VERSION=${ALPINE_VERSION}" \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --cache-from "${IMAGE_FQN}:${TAG}" \
     --target=iso \

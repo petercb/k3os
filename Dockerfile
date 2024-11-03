@@ -1,15 +1,15 @@
 # syntax=docker/dockerfile:1
 
-ARG ALPINE_RELEASE=3.17.7
+ARG ALPINE_VERSION=3.17
 
 ### BASE ###
-FROM alpine:${ALPINE_RELEASE} AS util
+FROM alpine:${ALPINE_VERSION} AS util
 SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
 
 # hadolint ignore=DL3018
-RUN apk add --no-progress --no-cache cpio squashfs-tools openrc xorriso mtools
+RUN apk add --no-progress --no-cache squashfs-tools xorriso zstd
 
 
 ### 10k3s ###
@@ -27,10 +27,13 @@ ENV INSTALL_K3S_VERSION=${K3S_VERSION} \
     INSTALL_K3S_SKIP_START=true \
     INSTALL_K3S_BIN_DIR=/output
 
+# hadolint ignore=DL3018
 RUN <<-EOF
+    apk add --no-progress --no-cache --virtual .openrc openrc
     chmod +x /output/install.sh
     /output/install.sh
     echo "${K3S_VERSION}" > /output/version
+    apk --no-progress del .openrc
 EOF
 
 
@@ -92,6 +95,8 @@ EOF
 ### 40kernel ###
 FROM util AS kernel
 
+ARG ALPINE_VERSION
+ARG ALPINE_ARCH
 ARG TARGETARCH
 ARG VERSION
 
@@ -100,10 +105,13 @@ COPY --from=bin --chmod=755 /output/k3os /usr/src/initrd/k3os/system/k3os/${VERS
 WORKDIR /usr/src/initrd/k3os/system/k3os
 RUN ln -s ${VERSION} current
 
-WORKDIR /usr/src/initrd
-RUN ln -s k3os/system/k3os/current/k3os init
+ADD --link \
+    https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/releases/${ALPINE_ARCH}/alpine-standard-${ALPINE_VERSION}.10-${ALPINE_ARCH}.iso \
+    /tmp/alpine.iso
 
-COPY files/mkinitfs.conf /etc/mkinitfs/
+ADD --link \
+    https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/releases/${ALPINE_ARCH}/netboot/initramfs-lts \
+    /tmp/initramfs-netboot.gz
 
 WORKDIR /output
 WORKDIR /usr/src/kernel/lib
@@ -111,25 +119,33 @@ WORKDIR /usr/src/initrd/lib
 WORKDIR /tmp
 # hadolint ignore=DL3003,DL3018,DL3019,DL4006
 RUN <<-EOF
-    apk add --no-cache --no-progress --virtual .kernel linux-lts
-    cp /boot/vmlinuz-lts /output/vmlinuz
-    basename /lib/modules/*-lts > /output/version
+    xorriso -osirrox on -indev alpine.iso -extract /boot alpine
     mkdir initrd
     (
         cd initrd && \
-        zcat /boot/initramfs-lts | cpio -idm && \
+        zcat ../alpine/initramfs-lts | cpio -idm && \
+        zcat ../initramfs-netboot.gz | cpio -idmu && \
         mv lib/firmware lib/modules /usr/src/initrd/lib/
     )
     rm -rf initrd
-    (cd /usr/src/initrd && find . | cpio -H newc -o | gzip -c -1 > /output/initrd)
+    (
+        cd /usr/src/initrd && \
+        ln -s k3os/system/k3os/current/k3os init && \
+        depmod -b . "$(basename lib/modules/*-lts)" && \
+        find . | cpio -H newc -o | zstd -c - > /output/initrd
+    )
     rm -rf /usr/src/initrd/lib/*
+    cp alpine/vmlinuz-lts /output/vmlinuz
+    mv alpine/vmlinuz-lts /usr/src/kernel/vmlinuz
+    rm -rf alpine
+    apk add --no-cache --no-progress --virtual .kernel linux-lts
+    basename /lib/modules/*-lts > /output/version
     cp /boot/System.map-lts /usr/src/kernel/System.map
     cp /boot/config-lts /usr/src/kernel/config
     cp -r /lib/firmware /usr/src/kernel/lib/
     cp -r /lib/modules /usr/src/kernel/lib/
     cp /output/version /usr/src/kernel/
-    cp /output/vmlinuz /usr/src/kernel/
-    mksquashfs /usr/src/kernel /output/kernel.squashfs -no-progress
+    mksquashfs /usr/src/kernel /output/kernel.squashfs -no-progress -comp zstd
     rm -rf /usr/src/kernel
     apk del --no-progress .kernel
 EOF
@@ -186,7 +202,7 @@ WORKDIR /output
 # grub-mkrescue doesn't exit non-zero on failure
 # hadolint ignore=DL3018,SC2086
 RUN <<-EOF
-    PKGS="grub grub-efi"
+    PKGS="grub grub-efi mkinitfs mtools openrc"
     [ "$TARGETARCH" = "amd64" ] && PKGS="${PKGS} grub-bios"
     apk add --no-cache --no-progress --virtual .grub ${PKGS}
     grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \

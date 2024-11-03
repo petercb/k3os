@@ -40,7 +40,8 @@ TAG=${TAG:-"${VERSION}-${ARCH}"}
 REPO=${CIRCLE_PROJECT_USERNAME:-petercb}
 IMAGE_NAME=${CIRCLE_PROJECT_REPONAME:-k3os}
 IMAGE_FQN="${REGISTRY}/${REPO}/${IMAGE_NAME}"
-ALPINE_RELEASE="3.17.10"
+ALPINE_ARCH=$(uname -i)
+ALPINE_VERSION="3.17"
 
 echo "K3os Version   = ${VERSION}"
 echo "Docker tag     = ${TAG}"
@@ -48,7 +49,8 @@ echo "Branch         = ${BRANCH}"
 echo "OS             = ${OS}"
 echo "Arch           = ${ARCH}"
 echo "Image          = ${IMAGE_FQN}"
-echo "Alpine Release = ${ALPINE_RELEASE}"
+echo "Alpine Arch    = ${ALPINE_ARCH}"
+echo "Alpine Version = ${ALPINE_VERSION}"
 
 if [ "${CIRCLECI:-}" = "true" ]; then
     echo "export VERSION=${VERSION}" >> "${BASH_ENV:-/dev/null}"
