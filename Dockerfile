@@ -9,7 +9,7 @@ SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 ARG TARGETARCH
 
 # hadolint ignore=DL3018
-RUN apk add --no-progress --no-cache squashfs-tools xorriso zstd
+RUN apk add --no-progress --no-cache squashfs-tools xorriso
 
 
 ### 10k3s ###
@@ -132,7 +132,7 @@ RUN <<-EOF
         cd /usr/src/initrd && \
         ln -s k3os/system/k3os/current/k3os init && \
         depmod -b . "$(basename lib/modules/*-lts)" && \
-        find . | cpio -H newc -o | zstd -c - > /output/initrd
+        find . | cpio -H newc -o | gzip -c -1 > /output/initrd
     )
     rm -rf /usr/src/initrd/lib/*
     cp alpine/vmlinuz-lts /output/vmlinuz
@@ -145,7 +145,7 @@ RUN <<-EOF
     cp -r /lib/firmware /usr/src/kernel/lib/
     cp -r /lib/modules /usr/src/kernel/lib/
     cp /output/version /usr/src/kernel/
-    mksquashfs /usr/src/kernel /output/kernel.squashfs -no-progress -comp zstd
+    mksquashfs /usr/src/kernel /output/kernel.squashfs -no-progress
     rm -rf /usr/src/kernel
     apk del --no-progress .kernel
 EOF
