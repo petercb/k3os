@@ -14,7 +14,7 @@ RUN apk add --no-cache --no-progress mtools openrc squashfs-tools xorriso
 FROM util AS k3s
 
 ARG TARGETARCH
-ARG K3S_VERSION=v1.28.14+k3s1
+ARG K3S_VERSION
 
 ADD --link \
     https://raw.githubusercontent.com/rancher/k3s/${K3S_VERSION}/install.sh \
