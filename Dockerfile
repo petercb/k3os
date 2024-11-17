@@ -7,7 +7,7 @@ SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 ARG TARGETARCH
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache --no-progress mtools openrc squashfs-tools xorriso
+RUN apk add --no-cache --no-progress cpio mtools openrc squashfs-tools xorriso
 
 
 ### 10k3s ###
@@ -47,12 +47,13 @@ COPY --from=k3s /output/install.sh /usr/src/image/libexec/k3os/k3s-install.sh
 
 COPY overlay/ /usr/src/image/
 
+WORKDIR /usr/src/image/sbin
 RUN <<-EOF
-    ln -s /k3os/system/k3os/current/k3os /usr/src/image/sbin/k3os
-    ln -s /k3os/system/k3s/current/k3s /usr/src/image/sbin/k3s
-    ln -s k3s /usr/src/image/sbin/kubectl
-    ln -s k3s /usr/src/image/sbin/crictl
-    ln -s k3s /usr/src/image/sbin/ctr
+    ln -s /k3os/system/k3os/current/k3os k3os
+    ln -s /k3os/system/k3s/current/k3s k3s
+    ln -s k3s kubectl
+    ln -s k3s crictl
+    ln -s k3s ctr
 EOF
 
 COPY install.sh /usr/src/image/libexec/k3os/install
@@ -91,7 +92,7 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG KERNEL_VERSION=5.15.0-101.2
+ARG KERNEL_VERSION=5.15.0-125.2
 
 COPY --from=bin /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
@@ -104,20 +105,23 @@ RUN ln -s k3os/system/k3os/current/k3os init
 ADD --link \
     https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs \
     /output/kernel.squashfs
+ADD --link \
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-vmlinuz-${TARGETARCH}.img \
+    /output/vmlinuz
+ADD --link \
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-version-${TARGETARCH}.txt \
+    /output/version
+ADD --link \
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-initrd-${TARGETARCH}.gz \
+    /tmp/initrd.gz
 
-WORKDIR /usr/src/kernel
-
-# hadolint ignore=DL3003,DL4006
+WORKDIR /usr/src/initrd
+# hadolint ignore=DL4006
 RUN <<-EOF
-    unsquashfs -n -d . /output/kernel.squashfs
-    mkdir -p /usr/src/initrd/lib
-    tar cf - -T initrd-modules -T initrd-firmware \
-        | tar xf - -C /usr/src/initrd/
-    depmod -b /usr/src/initrd "$(cat version)"
-    cp version /output/
-    cp vmlinuz /output/
-    (cd /usr/src/initrd && find . | cpio -H newc -o | gzip -c -1 > /output/initrd)
-    rm -rf /usr/src/initrd
+    zcat /tmp/initrd.gz | cpio -idm usr/lib/modules* usr/lib/firmware*
+    mv usr/lib ./
+    rmdir usr
+    find . | cpio -H newc -o | gzip -c -1 > /output/initrd
     rm -rf ./*
 EOF
 
@@ -126,19 +130,23 @@ EOF
 ### 50package ###
 FROM util AS package
 ARG VERSION
+ARG K3S_VERSION
 
-COPY --from=k3s /output/  /output/k3os/system/k3s/
+COPY --from=k3s /output/  /output/k3os/system/k3s/${K3S_VERSION}/
 COPY --from=bin /output/  /output/k3os/system/k3os/${VERSION}/
 
+WORKDIR /output/sbin
 WORKDIR /output/k3os/system/k3s
 RUN <<-EOF
-    mkdir -vp "$(cat version)" /output/sbin
-    mv -vf crictl ctr kubectl /output/sbin/
-    ln -sf "$(cat version)" current
-    mv -vf install.sh current/k3s-install.sh
-    mv -vf k3s current/
-    rm -vf version ./*.sh
+    ln -sf "${K3S_VERSION}" current
     ln -sf /k3os/system/k3s/current/k3s /output/sbin/k3s
+EOF
+
+WORKDIR /output/k3os/system/k3s/${K3S_VERSION}
+RUN <<-EOF
+    mv crictl ctr kubectl /output/sbin/
+    mv install.sh k3s-install.sh
+    rm -vf version k3s-uninstall.sh
 EOF
 
 WORKDIR /output/k3os/system/k3os
