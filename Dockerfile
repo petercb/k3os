@@ -68,7 +68,7 @@ EOF
 ### 30bin ###
 FROM util AS bin
 
-ARG K3OS_BIN_VERSION=v1.4.3
+ARG K3OS_BIN_VERSION=v1.5.0
 ARG K3OS_BIN_REPO=https://github.com/petercb/k3os-bin
 ARG TARGETARCH
 
