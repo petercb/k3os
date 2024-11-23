@@ -7,7 +7,7 @@ SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 ARG TARGETARCH
 
 # hadolint ignore=DL3018
-RUN apk add --no-cache --no-progress cpio mtools openrc squashfs-tools xorriso
+RUN apk add --no-cache --no-progress cpio openrc squashfs-tools
 
 
 ### 10k3s ###
@@ -62,7 +62,7 @@ RUN <<-EOF
         -e "s/%ARCH%/${TARGETARCH}/g" \
         /usr/src/image/lib/os-release
     mkdir -p /output
-    mksquashfs /usr/src/image /output/rootfs.squashfs
+    mksquashfs /usr/src/image /output/rootfs.squashfs -no-progress
 EOF
 
 
@@ -178,17 +178,30 @@ COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/iso/
 
 WORKDIR /output
+WORKDIR /usr/src/iso
 # grub-mkrescue doesn't exit non-zero on failure
 # hadolint ignore=DL3018,SC2086
 RUN <<-EOF
-    PKGS="grub grub-efi"
-    [ "$TARGETARCH" = "amd64" ] && PKGS="${PKGS} grub-bios"
+    PKGS="grub grub-efi mtools xorriso"
+    [ "${TARGETARCH}" = "amd64" ] && PKGS="${PKGS} grub-bios"
     apk add --no-cache --no-progress ${PKGS}
-    grub-mkrescue -o /output/k3os.iso /usr/src/iso/. -- \
-        -volid K3OS \
-        -joliet off \
-        -hfsplus off \
-    && [ -e /output/k3os.iso ]
+    if [ "${TARGETARCH}" = "arm64" ]
+    then
+        echo "arm_64bit=1" > boot/config.txt
+        mkdir -p EFI/BOOT
+        grub-mkimage -O arm64-efi -o EFI/BOOT/BOOTAA64.EFI \
+            --prefix='/boot/grub' \
+            efi_gop linux ext2 part_gpt part_msdos normal boot chain configfile
+        xorriso -as mkisofs -o /output/k3os.iso \
+            -V K3OS \
+            -e EFI/BOOT/BOOTAA64.EFI \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            .
+    else
+        grub-mkrescue -o /output/k3os.iso . -- \
+            -volid K3OS \
+        && [ -e /output/k3os.iso ]
+    fi
 EOF
 
 
