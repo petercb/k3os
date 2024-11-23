@@ -92,7 +92,7 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG KERNEL_VERSION=5.15.0-125.2
+ARG KERNEL_VERSION=5.15.0-126.1
 
 COPY --from=bin /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
