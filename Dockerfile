@@ -92,7 +92,7 @@ FROM util AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG KERNEL_VERSION=5.15.0-126.1
+ARG KERNEL_VERSION
 
 COPY --from=bin /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
@@ -168,64 +168,53 @@ RUN <<-EOF
 EOF
 
 
-### 70iso ###
-FROM util AS iso
+### Output ###
+FROM util AS output
 ARG VERSION
 ARG TARGETARCH
 
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
-COPY --from=package /output/ /usr/src/iso/
+COPY --from=package /output/ /usr/src/${VERSION}/
 
 WORKDIR /output
+RUN tar czf k3os-rootfs-${TARGETARCH}.tar.gz -C /usr/src ${VERSION}
+
 WORKDIR /usr/src/iso
-# grub-mkrescue doesn't exit non-zero on failure
-# hadolint ignore=DL3018,SC2086
+# hadolint ignore=DL3018,SC2086,SC3037
 RUN <<-EOF
     PKGS="grub grub-efi mtools xorriso"
     [ "${TARGETARCH}" = "amd64" ] && PKGS="${PKGS} grub-bios"
-    apk add --no-cache --no-progress ${PKGS}
+    apk add --no-cache --no-progress --virtual .tools ${PKGS}
+    tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
     if [ "${TARGETARCH}" = "arm64" ]
     then
-        echo "arm_64bit=1" > boot/config.txt
+        wget -qO /tmp/raspi-firmware.tar.xz \
+            https://github.com/raspberrypi/firmware/releases/download/1.20241126/raspi-firmware_1.20241126.orig.tar.xz
+        tar xf /tmp/raspi-firmware.tar.xz --strip-components 1
+        rm /tmp/raspi-firmware.tar.xz
+        echo -e "[all]\narm_64bit=1\nkernel=efi64.bin" > boot/config.txt
         mkdir -p EFI/BOOT
-        grub-mkimage -O arm64-efi -o EFI/BOOT/BOOTAA64.EFI \
-            --prefix='/boot/grub' \
-            efi_gop linux ext2 part_gpt part_msdos normal boot chain configfile
-        xorriso -as mkisofs -o /output/k3os.iso \
+        grub-mkimage -O arm64-efi -o EFI/BOOT/BOOTAA64.EFI --prefix='/boot/grub'
+        xorriso -as mkisofs -o /output/k3os-${TARGETARCH}.iso \
             -V K3OS \
             -e EFI/BOOT/BOOTAA64.EFI \
             -no-emul-boot -boot-load-size 4 -boot-info-table \
             .
     else
-        grub-mkrescue -o /output/k3os.iso . -- \
+        grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
             -volid K3OS \
-        && [ -e /output/k3os.iso ]
+        && [ -e /output/k3os-${TARGETARCH}.iso ]
     fi
+    rm -rf ./*
+    apk del .tools
 EOF
-
-
-
-### 80tar ###
-FROM util AS tar
-ARG VERSION
-
-COPY --from=package /output/   /usr/src/${VERSION}/
-WORKDIR /output
-RUN tar czvf userspace.tar.gz -C /usr/src ${VERSION}
-
-
-### Full ###
-FROM util AS output
-ARG TARGETARCH
 
 WORKDIR /output
 COPY --from=kernel /output/vmlinuz k3os-vmlinuz-${TARGETARCH}
 COPY --from=kernel /output/initrd k3os-initrd-${TARGETARCH}
 COPY --from=kernel /output/kernel.squashfs k3os-kernel-${TARGETARCH}.squashfs
 COPY --from=kernel /output/version k3os-kernel-version-${TARGETARCH}
-COPY --from=iso /output/k3os.iso k3os-${TARGETARCH}.iso
-COPY --from=tar /output/userspace.tar.gz k3os-rootfs-${TARGETARCH}.tar.gz
 RUN find . -type f -exec sha256sum {} \; > sha256sum-${TARGETARCH}.txt
 
 

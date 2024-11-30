@@ -44,13 +44,14 @@ IMAGE_NAME=${CIRCLE_PROJECT_REPONAME:-k3os}
 IMAGE_FQN="${REGISTRY}/${REPO}/${IMAGE_NAME}"
 
 
-echo "K3os Version = ${VERSION}"
-echo "K3s Version  = ${K3S_VERSION}"
-echo "Docker tag   = ${TAG}"
-echo "Branch       = ${BRANCH}"
-echo "OS           = ${OS}"
-echo "Arch         = ${ARCH}"
-echo "Image        = ${IMAGE_FQN}"
+echo "K3os Version   = ${VERSION}"
+echo "K3s Version    = ${K3S_VERSION}"
+echo "Kernel Version = ${KERNEL_VERSION=5.15.0-126.1}"
+echo "Docker tag     = ${TAG}"
+echo "Branch         = ${BRANCH}"
+echo "OS             = ${OS}"
+echo "Arch           = ${ARCH}"
+echo "Image          = ${IMAGE_FQN}"
 
 if [ "${CIRCLECI:-}" = "true" ]; then
     echo "export VERSION=${VERSION}" >> "${BASH_ENV:-/dev/null}"
