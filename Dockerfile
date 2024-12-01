@@ -172,7 +172,13 @@ EOF
 FROM util AS output
 ARG VERSION
 ARG TARGETARCH
+ARG BOOT_DIR=/tmp/boot_partition
 
+ADD --link \
+    https://github.com/pftf/RPi4/releases/download/v1.39/RPi4_UEFI_Firmware_v1.39.zip \
+    /tmp/rpi-firmware.zip
+
+COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/boot/grub/grub.cfg
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/${VERSION}/
@@ -181,31 +187,54 @@ WORKDIR /output
 RUN tar czf k3os-rootfs-${TARGETARCH}.tar.gz -C /usr/src ${VERSION}
 
 WORKDIR /usr/src/iso
-# hadolint ignore=DL3018,SC2086,SC3037
+# hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub grub-efi mtools xorriso"
-    [ "${TARGETARCH}" = "amd64" ] && PKGS="${PKGS} grub-bios"
+    PKGS="grub grub-efi mtools"
+    case "${TARGETARCH}" in
+        amd64)
+            PKGS="${PKGS} grub-bios xorriso"
+            ;;
+        arm64)
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
+            ;;
+    esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
     tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
-    if [ "${TARGETARCH}" = "arm64" ]
-    then
-        wget -qO /tmp/raspi-firmware.tar.xz \
-            https://github.com/raspberrypi/firmware/releases/download/1.20241126/raspi-firmware_1.20241126.orig.tar.xz
-        tar xf /tmp/raspi-firmware.tar.xz --strip-components 1
-        rm /tmp/raspi-firmware.tar.xz
-        echo -e "[all]\narm_64bit=1\nkernel=efi64.bin" > boot/config.txt
-        mkdir -p EFI/BOOT
-        grub-mkimage -O arm64-efi -o EFI/BOOT/BOOTAA64.EFI --prefix='/boot/grub'
-        xorriso -as mkisofs -o /output/k3os-${TARGETARCH}.iso \
-            -V K3OS \
-            -e EFI/BOOT/BOOTAA64.EFI \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            .
-    else
-        grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
-            -volid K3OS \
-        && [ -e /output/k3os-${TARGETARCH}.iso ]
-    fi
+    case "${TARGETARCH}" in
+        arm64)
+            unzip /tmp/rpi-firmware.zip -d "${BOOT_DIR}"
+            rm -rf boot
+            mkdir -p "${BOOT_DIR}/efi/boot"
+            grub-mkimage -O arm64-efi -o "${BOOT_DIR}/efi/boot/bootaa64.efi" \
+                --prefix='/boot/grub'
+            BOOT_IMG="/tmp/boot_partition.img"
+            fallocate -l 25M "${BOOT_IMG}"
+            mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
+            mcopy -bsQ -i "${BOOT_IMG}" "${BOOT_DIR}"/* ::/
+            rm -rf "${BOOT_DIR}"
+            ROOT_IMG="/tmp/root_partition.img"
+            fallocate -l 998M "${ROOT_IMG}"
+            mke2fs -t ext4 -L K3OS_STATE -d . "${ROOT_IMG}"
+            tune2fs -O ^has_journal "${ROOT_IMG}"
+            e2fsck -f -y "${ROOT_IMG}"
+            resize2fs -M "${ROOT_IMG}"
+            FINAL_IMG="/output/k3os-${TARGETARCH}.img"
+            fallocate -l 1025M "${FINAL_IMG}"
+            echo -e "2048 51200 c *\n53248 2045952 83" \
+                | sfdisk --label dos "${FINAL_IMG}"
+            dd if="${BOOT_IMG}" of="${FINAL_IMG}" bs=512 seek=2048 conv=notrunc
+            dd if="${ROOT_IMG}" of="${FINAL_IMG}" bs=512 seek=53248 conv=notrunc
+            rm "${BOOT_IMG}" "${ROOT_IMG}"
+            ls -lFah /output
+            sfdisk -lV "${FINAL_IMG}"
+            bzip2 "${FINAL_IMG}"
+            ;;
+        amd64)
+            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
+                -volid K3OS \
+            && [ -e /output/k3os-${TARGETARCH}.iso ]
+            ;;
+    esac
     rm -rf ./*
     apk del .tools
 EOF
