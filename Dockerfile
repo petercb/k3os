@@ -195,7 +195,7 @@ RUN <<-EOF
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip xz"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -206,28 +206,33 @@ RUN <<-EOF
             rm -rf boot
             mkdir -p "${BOOT_DIR}/efi/boot"
             grub-mkimage -O arm64-efi -o "${BOOT_DIR}/efi/boot/bootaa64.efi" \
-                --prefix='/boot/grub'
+                --prefix='/boot/grub' \
+                all_video boot chain configfile disk efi_gop ext2 fat \
+                gfxterm gzio linux loopback normal part_msdos search \
+                search_label squash4
+            BOOT_SIZE=20480
+            ROOT_SIZE=1843200
             BOOT_IMG="/tmp/boot_partition.img"
-            fallocate -l 25M "${BOOT_IMG}"
+            fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
             mcopy -bsQ -i "${BOOT_IMG}" "${BOOT_DIR}"/* ::/
             rm -rf "${BOOT_DIR}"
             ROOT_IMG="/tmp/root_partition.img"
-            fallocate -l 998M "${ROOT_IMG}"
-            mke2fs -t ext4 -L K3OS_STATE -d . "${ROOT_IMG}"
+            fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
+            mke2fs -t ext4 -L K3OS_STATE -d . -m 0 "${ROOT_IMG}"
             tune2fs -O ^has_journal "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
             resize2fs -M "${ROOT_IMG}"
             FINAL_IMG="/output/k3os-${TARGETARCH}.img"
-            fallocate -l 1025M "${FINAL_IMG}"
-            echo -e "2048 51200 c *\n53248 2045952 83" \
+            fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
+            echo -e "2048 ${BOOT_SIZE} 4 *\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
                 | sfdisk --label dos "${FINAL_IMG}"
             dd if="${BOOT_IMG}" of="${FINAL_IMG}" bs=512 seek=2048 conv=notrunc
-            dd if="${ROOT_IMG}" of="${FINAL_IMG}" bs=512 seek=53248 conv=notrunc
+            dd if="${ROOT_IMG}" of="${FINAL_IMG}" bs=512 seek=$((BOOT_SIZE + 2048)) conv=notrunc
             rm "${BOOT_IMG}" "${ROOT_IMG}"
             ls -lFah /output
             sfdisk -lV "${FINAL_IMG}"
-            bzip2 "${FINAL_IMG}"
+            xz "${FINAL_IMG}"
             ;;
         amd64)
             grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
