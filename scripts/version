@@ -46,7 +46,7 @@ IMAGE_FQN="${REGISTRY}/${REPO}/${IMAGE_NAME}"
 
 echo "K3os Version   = ${VERSION}"
 echo "K3s Version    = ${K3S_VERSION}"
-echo "Kernel Version = ${KERNEL_VERSION=5.15.0-126.1}"
+echo "Kernel Version = ${KERNEL_VERSION=5.15.0-126.2}"
 echo "Docker tag     = ${TAG}"
 echo "Branch         = ${BRANCH}"
 echo "OS             = ${OS}"

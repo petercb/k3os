@@ -27,7 +27,7 @@ mkdir -p "${DIST_DIR}"
 ID=$(docker create "${IMAGE_FQN}-output:${TAG}")
 case "${ARCH}" in
     arm64)
-        docker cp "${ID}:/output/k3os-${ARCH}.img.xz" "${DIST_DIR}"
+        docker cp "${ID}:/output/k3os-${ARCH}.img" "${DIST_DIR}"
         ;;
     amd64)
         docker cp "${ID}:/output/k3os-${ARCH}.iso" "${DIST_DIR}"
