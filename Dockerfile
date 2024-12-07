@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ### BASE ###
-FROM alpine:3.17.7 AS util
+FROM alpine:3.21 AS util
 SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
@@ -178,6 +178,7 @@ ADD --link https://github.com/raspberrypi/firmware.git#1.20241126 /tmp/firmware
 
 COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/efi/grub/grub.cfg
 COPY iso-files/rpi-config.txt ${BOOT_DIR}/config.txt
+COPY iso-files/rpi-boot.cmd /tmp/
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/${VERSION}/
@@ -194,7 +195,7 @@ RUN <<-EOF
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk u-boot-raspberrypi u-boot-tools"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -210,14 +211,18 @@ RUN <<-EOF
             mkdir -p "${BOOT_DIR}/overlays"
             cp /tmp/firmware/boot/overlays/miniuart-bt.dtbo \
                 /tmp/firmware/boot/overlays/upstream-pi4.dtbo \
+                /tmp/firmware/boot/overlays/disable-*.dtbo \
                 "${BOOT_DIR}/overlays/"
+            cp /usr/share/u-boot/rpi_arm64/u-boot.bin "${BOOT_DIR}/"
             grub-mkimage -O arm64-efi -o "${BOOT_DIR}/bootaa64.efi" \
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio linux loopback normal part_msdos search \
-                search_label squash4
+                search_label squash4 terminal
+            mkimage -C none -A arm64 -T script \
+                -d /tmp/rpi-boot.cmd "${BOOT_DIR}/boot.scr"
             BOOT_SIZE=$((10 * 2048))
-            ROOT_SIZE=$((847 * 2048))
+            ROOT_SIZE=$((864 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
