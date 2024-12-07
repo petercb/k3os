@@ -174,11 +174,10 @@ ARG VERSION
 ARG TARGETARCH
 ARG BOOT_DIR=/tmp/boot_partition
 
-ADD --link \
-    https://github.com/pftf/RPi4/releases/download/v1.39/RPi4_UEFI_Firmware_v1.39.zip \
-    /tmp/rpi-firmware.zip
+ADD --link https://github.com/raspberrypi/firmware.git#1.20241126 /tmp/firmware
 
-COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/boot/grub/grub.cfg
+COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/efi/grub/grub.cfg
+COPY iso-files/rpi-config.txt ${BOOT_DIR}/config.txt
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/${VERSION}/
@@ -202,16 +201,23 @@ RUN <<-EOF
     tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
     case "${TARGETARCH}" in
         arm64)
-            unzip /tmp/rpi-firmware.zip -d "${BOOT_DIR}"
             rm -rf boot
-            mkdir -p "${BOOT_DIR}/efi/boot"
-            grub-mkimage -O arm64-efi -o "${BOOT_DIR}/efi/boot/bootaa64.efi" \
-                --prefix='/boot/grub' \
+            cp /tmp/firmware/boot/fixup4.dat \
+                /tmp/firmware/boot/start4.elf \
+                /tmp/firmware/boot/bcm2711-*.dtb \
+                /tmp/firmware/boot/bcm2712-*.dtb \
+                "${BOOT_DIR}/"
+            mkdir -p "${BOOT_DIR}/overlays"
+            cp /tmp/firmware/boot/overlays/miniuart-bt.dtbo \
+                /tmp/firmware/boot/overlays/upstream-pi4.dtbo \
+                "${BOOT_DIR}/overlays/"
+            grub-mkimage -O arm64-efi -o "${BOOT_DIR}/bootaa64.efi" \
+                --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio linux loopback normal part_msdos search \
                 search_label squash4
-            BOOT_SIZE=20480
-            ROOT_SIZE=1740800
+            BOOT_SIZE=$((10 * 2048))
+            ROOT_SIZE=$((847 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
