@@ -62,7 +62,7 @@ RUN <<-EOF
         -e "s/%ARCH%/${TARGETARCH}/g" \
         /usr/src/image/lib/os-release
     mkdir -p /output
-    mksquashfs /usr/src/image /output/rootfs.squashfs -no-progress
+    mksquashfs /usr/src/image /output/rootfs.squashfs -no-progress -comp zstd
 EOF
 
 
@@ -111,16 +111,10 @@ ADD --link \
 ADD --link \
     https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-version-${TARGETARCH}.txt \
     /output/version
-ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-initrd-${TARGETARCH}.gz \
-    /tmp/initrd.gz
 
 WORKDIR /usr/src/initrd
 # hadolint ignore=DL4006
 RUN <<-EOF
-    zcat /tmp/initrd.gz | cpio -idm usr/lib/modules* usr/lib/firmware*
-    mv usr/lib ./
-    rmdir usr
     find . | cpio -H newc -o | gzip -c -1 > /output/initrd
     rm -rf ./*
 EOF
@@ -178,7 +172,6 @@ ADD --link https://github.com/raspberrypi/firmware.git#1.20241126 /tmp/firmware
 
 COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/efi/grub/grub.cfg
 COPY iso-files/rpi-config.txt ${BOOT_DIR}/config.txt
-COPY iso-files/rpi-boot.cmd /tmp/
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/${VERSION}/
@@ -195,7 +188,7 @@ RUN <<-EOF
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk u-boot-raspberrypi u-boot-tools"
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -213,14 +206,11 @@ RUN <<-EOF
                 /tmp/firmware/boot/overlays/upstream-pi4.dtbo \
                 /tmp/firmware/boot/overlays/disable-*.dtbo \
                 "${BOOT_DIR}/overlays/"
-            cp /usr/share/u-boot/rpi_arm64/u-boot.bin "${BOOT_DIR}/"
             grub-mkimage -O arm64-efi -o "${BOOT_DIR}/bootaa64.efi" \
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio linux loopback normal part_msdos search \
-                search_label squash4 terminal
-            mkimage -C none -A arm64 -T script \
-                -d /tmp/rpi-boot.cmd "${BOOT_DIR}/boot.scr"
+                search_label squash4 terminal zstd
             BOOT_SIZE=$((10 * 2048))
             ROOT_SIZE=$((864 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"

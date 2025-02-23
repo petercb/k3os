@@ -9,7 +9,7 @@ hdmi_safe:0=1
 hdmi_safe:1=1
 
 # Load GRUB
-kernel=u-boot.bin
+kernel=bootaa64.efi
 
 # Forces the kernel loading system to assume a 64-bit kernel.
 arm_64bit=1
@@ -32,6 +32,5 @@ dtoverlay=disable-bt
 # Disable Wireless Lan.
 dtoverlay=disable-wifi
 
-[pi5]
 # Enable PCIe
 dtparam=pciex1
