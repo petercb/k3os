@@ -210,12 +210,12 @@ RUN <<-EOF
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio linux loopback normal part_msdos search \
-                search_label squash4 terminal zstd
+                search_label squash4 terminal
             BOOT_SIZE=$((10 * 2048))
             ROOT_SIZE=$((230 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
-            mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
+            mkfs.vfat -n K3OS_GRUB "${BOOT_IMG}"
             mcopy -bsQ -i "${BOOT_IMG}" "${BOOT_DIR}"/* ::/
             rm -rf "${BOOT_DIR}"
             ROOT_IMG="/tmp/root_partition.img"
@@ -225,7 +225,7 @@ RUN <<-EOF
             e2fsck -f -y "${ROOT_IMG}"
             FINAL_IMG="/output/k3os-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
-            echo -e "2048 ${BOOT_SIZE} 4 *\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
+            echo -e "2048 ${BOOT_SIZE} c *\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
                 | sfdisk --label dos "${FINAL_IMG}"
             dd if="${BOOT_IMG}" of="${FINAL_IMG}" bs=512 seek=2048 conv=notrunc
             dd if="${ROOT_IMG}" of="${FINAL_IMG}" bs=512 seek=$((BOOT_SIZE + 2048)) conv=notrunc
