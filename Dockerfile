@@ -237,8 +237,7 @@ RUN <<-EOF
                 -volid K3OS \
                 -joliet off \
                 -hfsplus off \
-                -rockridge on \
-
+                -rockridge on
             [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
