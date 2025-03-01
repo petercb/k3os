@@ -182,13 +182,13 @@ RUN tar czf k3os-rootfs-${TARGETARCH}.tar.gz -C /usr/src ${VERSION}
 WORKDIR /usr/src/iso
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub grub-efi mtools"
+    PKGS="grub mtools"
     case "${TARGETARCH}" in
         amd64)
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk"
+            PKGS="${PKGS} grub-efi e2fsprogs e2fsprogs-extra dosfstools sfdisk"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -237,7 +237,8 @@ RUN <<-EOF
                 -volid K3OS \
                 -joliet off \
                 -hfsplus off \
-                -rockridge on
+                -rockridge on \
+
             [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
