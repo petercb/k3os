@@ -212,7 +212,7 @@ RUN <<-EOF
                 gfxterm gzio linux loopback normal part_msdos search \
                 search_label squash4 terminal zstd
             BOOT_SIZE=$((10 * 2048))
-            ROOT_SIZE=$((864 * 2048))
+            ROOT_SIZE=$((230 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -F 16 -n K3OS_GRUB "${BOOT_IMG}"
@@ -235,7 +235,10 @@ RUN <<-EOF
         amd64)
             grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
                 -volid K3OS \
-            && [ -e /output/k3os-${TARGETARCH}.iso ]
+                -joliet off \
+                -hfsplus off \
+                -rockridge on
+            [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
     rm -rf ./*
