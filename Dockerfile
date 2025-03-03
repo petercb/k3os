@@ -208,7 +208,7 @@ RUN <<-EOF
                 /tmp/firmware/boot/overlays/disable-*.dtbo \
                 "${BOOT_DIR}/overlays/"
             cp /usr/share/u-boot/rpi_arm64/u-boot.bin "${BOOT_DIR}/"
-            grub-mkimage -O arm-uboot -o "${BOOT_DIR}/grub.img" \
+            grub-mkimage -O arm64-efi -o "${BOOT_DIR}/grub.img" \
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio iso9660 linux loopback normal part_msdos search \
