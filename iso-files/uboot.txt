@@ -1,0 +1,3 @@
+setenv bootargs ''
+load ${devtype} ${devnum}:${distro_bootpart} 0x02000000 grub.img
+bootm 0x02000000

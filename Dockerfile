@@ -174,6 +174,7 @@ COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/efi/grub/grub.cfg
 COPY iso-files/rpi-config.txt ${BOOT_DIR}/config.txt
 COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
 COPY iso-files/config.yaml /usr/src/iso/k3os/system/
+COPY iso-files/uboot.txt /tmp/
 COPY --from=package /output/ /usr/src/${VERSION}/
 
 WORKDIR /output
@@ -188,7 +189,7 @@ RUN <<-EOF
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} grub-efi e2fsprogs e2fsprogs-extra dosfstools sfdisk"
+            PKGS="${PKGS} grub-efi e2fsprogs e2fsprogs-extra dosfstools sfdisk u-boot-raspberrypi u-boot-tools"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -206,11 +207,14 @@ RUN <<-EOF
                 /tmp/firmware/boot/overlays/upstream-pi4.dtbo \
                 /tmp/firmware/boot/overlays/disable-*.dtbo \
                 "${BOOT_DIR}/overlays/"
-            grub-mkimage -O arm64-efi -o "${BOOT_DIR}/bootaa64.efi" \
+            cp /usr/share/u-boot/rpi_arm64/u-boot.bin "${BOOT_DIR}/"
+            grub-mkimage -O arm-uboot -o "${BOOT_DIR}/grub.img" \
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
                 gfxterm gzio iso9660 linux loopback normal part_msdos search \
                 search_label squash4 terminal
+            mkimage -C none -A arm64 -T script -d /tmp/uboot.txt \
+                "${BOOT_DIR}/boot.scr"
             BOOT_SIZE=$((10 * 2048))
             ROOT_SIZE=$((230 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
