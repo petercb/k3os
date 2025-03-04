@@ -194,6 +194,7 @@ RUN <<-EOF
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
     tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
+    mkdir -p k3os/data/opt
     case "${TARGETARCH}" in
         arm64)
             rm -rf boot
@@ -216,7 +217,7 @@ RUN <<-EOF
             mkimage -C none -A arm64 -T script -d /tmp/uboot.txt \
                 "${BOOT_DIR}/boot.scr"
             BOOT_SIZE=$((10 * 2048))
-            ROOT_SIZE=$((230 * 2048))
+            ROOT_SIZE=$((242 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -n K3OS_GRUB "${BOOT_IMG}"
@@ -224,10 +225,9 @@ RUN <<-EOF
             rm -rf "${BOOT_DIR}"
             ROOT_IMG="/tmp/root_partition.img"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
-            mke2fs -t ext4 -L K3OS_STATE -O ^has_journal,sparse_super \
-                -d . -m 0 "${ROOT_IMG}"
+            mke2fs -t ext4 -L K3OS_STATE -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
-            FINAL_IMG="/output/k3os-${TARGETARCH}.img"
+            FINAL_IMG="/output/k3os-rpi-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
             echo -e "2048 ${BOOT_SIZE} c\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
                 | sfdisk --label dos "${FINAL_IMG}"
