@@ -194,7 +194,7 @@ grow_live()
             # /dev/nvme0n1p2 => 2
             NUM=$(echo "$PART" | sed 's!.*[^0-9]!!')
         fi
-        pinfo Growing ${PART:=${DEV}${NUM}}
+        pinfo Growing ${PART=${DEV}${NUM}}
         do_grow_live $DEV $NUM $PART || true
         rm -f /k3os/system/growpart
     fi

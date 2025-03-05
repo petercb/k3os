@@ -195,6 +195,7 @@ RUN <<-EOF
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
     tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
     mkdir -p k3os/data/opt
+    echo "/dev/xxx 99" > k3os/system/growpart
     case "${TARGETARCH}" in
         arm64)
             rm -rf boot
@@ -225,7 +226,7 @@ RUN <<-EOF
             rm -rf "${BOOT_DIR}"
             ROOT_IMG="/tmp/root_partition.img"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
-            mke2fs -t ext4 -L K3OS_STATE -d . "${ROOT_IMG}"
+            mke2fs -t ext4 -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
             FINAL_IMG="/output/k3os-rpi-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
