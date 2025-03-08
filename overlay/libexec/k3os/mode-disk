@@ -33,7 +33,7 @@ setup_mounts()
             # /dev/nvme0n1p2 => 2
             NUM=$(echo "$PART" | sed 's!.*[^0-9]!!')
         fi
-        if [ -e "${PART:=${DEV}${NUM}}" ]; then
+        if [ -e "${PART=${DEV}${NUM}}" ]; then
             umount $TARGET
             grow $DEV $NUM $PART || true
             mount -L K3OS_STATE $TARGET

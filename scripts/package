@@ -5,7 +5,7 @@ source "$(dirname $0)/version"
 
 CI_ARGS=""
 if [ "${CI:-}" = "true" ]; then
-    CI_ARGS="--progress=plain --pull"
+    CI_ARGS="--pull"
 fi
 
 # Collect build artifacts
@@ -13,7 +13,10 @@ echo "Building ${IMAGE_FQN}-output:${TAG}"
 docker build \
     ${CI_ARGS} \
     --tag "${IMAGE_FQN}-output:${TAG}" \
+    --build-arg "K3S_VERSION=${K3S_VERSION}" \
+    --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
     --build-arg "VERSION=${VERSION}" \
+    --progress=plain \
     --target=output \
     --file "$(dirname $0)/../Dockerfile" \
     "$(dirname $0)/.."
@@ -22,7 +25,14 @@ DIST_DIR="$(dirname $0)/../dist/"
 rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}"
 ID=$(docker create "${IMAGE_FQN}-output:${TAG}")
-docker cp "${ID}:/output/k3os-${ARCH}.iso" "${DIST_DIR}"
+case "${ARCH}" in
+    arm64)
+        docker cp "${ID}:/output/k3os-rpi-${ARCH}.img" "${DIST_DIR}"
+        ;;
+    amd64)
+        docker cp "${ID}:/output/k3os-${ARCH}.iso" "${DIST_DIR}"
+        ;;
+esac
 docker cp "${ID}:/output/k3os-initrd-${ARCH}" "${DIST_DIR}"
 docker cp "${ID}:/output/k3os-kernel-${ARCH}.squashfs" "${DIST_DIR}"
 docker cp "${ID}:/output/k3os-kernel-version-${ARCH}" "${DIST_DIR}"

@@ -115,16 +115,6 @@ jobs:
 
 
 workflows:
-  feature:
-    jobs:
-      - build:
-          executor: amd64
-          push: false
-          context: github
-          filters:
-            branches:
-              ignore: master
-
   continuous:
     jobs:
       - build: &rc-build
@@ -133,8 +123,8 @@ workflows:
           push: false
           context: github
           filters:
-            branches:
-              only: master
+            tags:
+              ignore: /.*/
       - build:
           <<: *rc-build
           name: Release candidate build (ARM64)

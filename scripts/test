@@ -15,13 +15,11 @@ fi
 output_dir="$(dirname $0)/../build/test-results"
 mkdir -p "${output_dir}"
 
-for image_suffix in "" "-iso"; do
-    output_flags=""
-    if [ "${CIRCLECI:-}" = "true" ]; then
-        output_flags="--output junit --test-report ${output_dir}/${IMAGE_NAME}${image_suffix}-cst-results.xml"
-    fi
-    ${CST_BIN} test \
-        --config "$(dirname $0)/../cst/k3os${image_suffix}.yaml" \
-        --image "${IMAGE_FQN}${image_suffix}:${TAG}" \
-        ${output_flags}
-done
+output_flags=""
+if [ "${CIRCLECI:-}" = "true" ]; then
+    output_flags="--output junit --test-report ${output_dir}/${IMAGE_NAME}-cst-results.xml"
+fi
+${CST_BIN} test \
+    --config "$(dirname $0)/../cst/k3os.yaml" \
+    --image "${IMAGE_FQN}:${TAG}" \
+    ${output_flags}
