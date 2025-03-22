@@ -200,6 +200,7 @@ RUN <<-EOF
             mkdir -p k3os/data/opt
             echo "/dev/xxx 99" > k3os/system/growpart
             unzip -d "${BOOT_DIR}/" /tmp/firmware.zip
+            mkdir -p "${BOOT_DIR}/efi/boot"
             grub-mkimage -O arm64-efi -o "${BOOT_DIR}/efi/boot/bootaa64.efi" \
                 --prefix='/efi/grub' \
                 all_video boot chain configfile disk efi_gop ext2 fat \
