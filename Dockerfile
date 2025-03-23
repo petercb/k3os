@@ -217,7 +217,7 @@ RUN <<-EOF
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
             mke2fs -t ext4 -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
-            FINAL_IMG="/output/k3os-rpi-${TARGETARCH}.img"
+            FINAL_IMG="/output/k3os-rpi4-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
             echo -e "2048 ${BOOT_SIZE} c\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
                 | sfdisk --label dos "${FINAL_IMG}"
