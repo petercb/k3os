@@ -111,10 +111,14 @@ ADD --link \
 ADD --link \
     https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-version-${TARGETARCH}.txt \
     /output/version
+ADD --link \
+    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-initrd-${TARGETARCH}.gz \
+    /tmp/initrd.gz
 
 WORKDIR /usr/src/initrd
 # hadolint ignore=DL4006
 RUN <<-EOF
+    zcat /tmp/initrd.gz | cpio -idm
     find . | cpio -H newc -o | gzip -c -1 > /output/initrd
     rm -rf ./*
 EOF
