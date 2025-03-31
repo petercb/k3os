@@ -211,7 +211,7 @@ RUN <<-EOF
                 gfxterm gzio iso9660 linux loopback normal part_msdos search \
                 search_label squash4 terminal
             BOOT_SIZE=$((10 * 2048))
-            ROOT_SIZE=$((242 * 2048))
+            ROOT_SIZE=$((256 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -n K3OS_GRUB "${BOOT_IMG}"
