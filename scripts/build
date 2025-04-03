@@ -10,6 +10,7 @@ if [ "${CI:-}" = "true" ]; then
 fi
 
 export DOCKER_BUILDKIT=1
+export BUILDKIT_PROGRESS=plain
 
 # Build k3os docker container
 echo "Building ${IMAGE_FQN}:${TAG}"
@@ -22,7 +23,6 @@ docker build \
     --build-arg "VERSION=${VERSION}" \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --cache-from "${IMAGE_FQN}:${TAG}" \
-    --progress=plain \
     --target=image \
     --file "$(dirname $0)/../Dockerfile" \
     "$(dirname $0)/.."
