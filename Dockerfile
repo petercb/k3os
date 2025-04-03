@@ -218,7 +218,7 @@ RUN <<-EOF
             rm -rf "${BOOT_DIR}"
 
             ROOT_SIZE=$(du -csb . | tail -1 | cut -f1)
-            ROOT_SIZE=$(((ROOT_SIZE * 1.1) / 512))
+            ROOT_SIZE=$(((ROOT_SIZE + (ROOT_SIZE / 10)) / 512))
             ROOT_IMG="/tmp/root_partition.img"
             echo "Creating ${ROOT_IMG} of ${ROOT_SIZE} blocks"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
