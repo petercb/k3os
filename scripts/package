@@ -40,3 +40,5 @@ docker cp "${ID}:/output/k3os-rootfs-${ARCH}.tar.gz" "${DIST_DIR}"
 docker cp "${ID}:/output/k3os-vmlinuz-${ARCH}" "${DIST_DIR}"
 docker cp "${ID}:/output/sha256sum-${ARCH}.txt" "${DIST_DIR}"
 docker rm -fv "${ID}"
+
+ls -lFah "${DIST_DIR}"
