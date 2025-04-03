@@ -227,9 +227,7 @@ RUN <<-EOF
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
             mke2fs -t ext4 -T default -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
-            debugfs "${ROOT_IMG}" <<-EOC
-            stat /
-            EOC
+            tune2fs -l "${ROOT_IMG}"
 
             FINAL_IMG="/output/k3os-rpi4-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
