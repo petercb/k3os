@@ -217,12 +217,15 @@ RUN <<-EOF
             mcopy -bsQ -i "${BOOT_IMG}" "${BOOT_DIR}"/* ::/
             rm -rf "${BOOT_DIR}"
 
-            ROOT_SIZE=$(du -csb . | tail -1 | cut -f1)
+            # calculate size of root disk
+            ROOT_SIZE=$(du -csk . | tail -1 | cut -f1)
+            ROOT_SIZE=$((ROOT_SIZE * 1024))
             ROOT_SIZE=$(((ROOT_SIZE + (ROOT_SIZE / 10)) / 512))
+
             ROOT_IMG="/tmp/root_partition.img"
-            echo "Creating ${ROOT_IMG} of ${ROOT_SIZE} blocks"
+            echo "Creating ${ROOT_IMG} of ${ROOT_SIZE} 512B blocks"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
-            mke2fs -t ext4 -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
+            mke2fs -t ext4 -T default -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
 
             FINAL_IMG="/output/k3os-rpi4-${TARGETARCH}.img"
