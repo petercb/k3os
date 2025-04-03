@@ -177,14 +177,15 @@ ADD --link \
     /tmp/firmware.zip
 
 COPY iso-files/rpi-live-grub.cfg ${BOOT_DIR}/efi/grub/grub.cfg
-COPY iso-files/grub.cfg /usr/src/iso/boot/grub/grub.cfg
-COPY iso-files/config.yaml /usr/src/iso/k3os/system/
 COPY --from=package /output/ /usr/src/${VERSION}/
 
 WORKDIR /output
 RUN tar czf k3os-rootfs-${TARGETARCH}.tar.gz -C /usr/src ${VERSION}
 
-WORKDIR /usr/src/iso
+COPY iso-files/grub.cfg /usr/src/${VERSION}/boot/grub/grub.cfg
+COPY iso-files/config.yaml /usr/src/${VERSION}/k3os/system/
+
+WORKDIR /usr/src/${VERSION}
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
     PKGS="grub mtools"
@@ -197,7 +198,6 @@ RUN <<-EOF
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
-    tar xf /output/k3os-rootfs-${TARGETARCH}.tar.gz --strip-components 1
     case "${TARGETARCH}" in
         arm64)
             rm -rf boot
@@ -211,16 +211,20 @@ RUN <<-EOF
                 gfxterm gzio iso9660 linux loopback normal part_msdos search \
                 search_label squash4 terminal
             BOOT_SIZE=$((10 * 2048))
-            ROOT_SIZE=$((256 * 2048))
             BOOT_IMG="/tmp/boot_partition.img"
             fallocate -l $((BOOT_SIZE * 512)) "${BOOT_IMG}"
             mkfs.vfat -n K3OS_GRUB "${BOOT_IMG}"
             mcopy -bsQ -i "${BOOT_IMG}" "${BOOT_DIR}"/* ::/
             rm -rf "${BOOT_DIR}"
+
+            ROOT_SIZE=$(du -csb . | tail -1 | cut -f1)
+            ROOT_SIZE=$(((ROOT_SIZE * 1.1) / 512))
             ROOT_IMG="/tmp/root_partition.img"
+            echo "Creating ${ROOT_IMG} of ${ROOT_SIZE} blocks"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
             mke2fs -t ext4 -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
+
             FINAL_IMG="/output/k3os-rpi4-${TARGETARCH}.img"
             fallocate -l $(((2048 + BOOT_SIZE + ROOT_SIZE) * 512)) "${FINAL_IMG}"
             echo -e "2048 ${BOOT_SIZE} c\n$((BOOT_SIZE + 2048)) ${ROOT_SIZE} 83" \
