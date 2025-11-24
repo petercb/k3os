@@ -239,11 +239,7 @@ RUN <<-EOF
             sfdisk -lV "${FINAL_IMG}"
             ;;
         amd64)
-            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
-                -volid K3OS \
-                -joliet off \
-                -hfsplus off \
-                -rockridge on
+            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- -volid K3OS
             [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
