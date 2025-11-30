@@ -188,13 +188,13 @@ COPY iso-files/config.yaml /usr/src/${VERSION}/k3os/system/
 WORKDIR /usr/src/${VERSION}
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub mtools"
+    PKGS="grub grub-efi mtools"
     case "${TARGETARCH}" in
         amd64)
             PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} grub-efi e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
@@ -239,11 +239,7 @@ RUN <<-EOF
             sfdisk -lV "${FINAL_IMG}"
             ;;
         amd64)
-            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- \
-                -volid K3OS \
-                -joliet off \
-                -hfsplus off \
-                -rockridge on
+            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- -volid K3OS
             [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
