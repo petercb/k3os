@@ -188,13 +188,13 @@ COPY iso-files/config.yaml /usr/src/${VERSION}/k3os/system/
 WORKDIR /usr/src/${VERSION}
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub mtools"
+    PKGS="grub grub-bios grub-efi mtools"
     case "${TARGETARCH}" in
         amd64)
-            PKGS="${PKGS} grub-bios xorriso"
+            PKGS="${PKGS} xorriso"
             ;;
         arm64)
-            PKGS="${PKGS} grub-efi e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
+            PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
