@@ -188,10 +188,10 @@ COPY iso-files/config.yaml /usr/src/${VERSION}/k3os/system/
 WORKDIR /usr/src/${VERSION}
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub grub-bios grub-efi mtools"
+    PKGS="grub grub-efi mtools"
     case "${TARGETARCH}" in
         amd64)
-            PKGS="${PKGS} xorriso"
+            PKGS="${PKGS} grub-bios xorriso"
             ;;
         arm64)
             PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
