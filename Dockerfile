@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ### BASE ###
-FROM alpine:3.21 AS util
+FROM alpine:3.22 AS util
 SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
