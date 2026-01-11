@@ -21,6 +21,8 @@ docker build \
     --build-arg "K3S_VERSION=${K3S_VERSION}" \
     --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
     --build-arg "VERSION=${VERSION}" \
+    --build-arg "BASE_VERSION=${BASE_VERSION}" \
+    --build-arg "K3OS_BIN_VERSION=${K3OS_BIN_VERSION}" \
     --cache-from "${IMAGE_FQN}:${BRANCH}-${ARCH}" \
     --cache-from "${IMAGE_FQN}:${TAG}" \
     --target=image \
