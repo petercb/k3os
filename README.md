@@ -343,25 +343,14 @@ the cluster.
 
 ### Automatic Upgrades
 
-Integration with [rancher/system-upgrade-controller](https://github.com/rancher/system-upgrade-controller) has been implemented as of [v0.9.0](https://github.com/petercb/k3os/releases/tag/v0.9.0).
-To enable a k3OS node to automatically upgrade from the [latest GitHub release](https://github.com/petercb/k3os/releases/latest) you will need to make sure it has the label
-`k3os.io/upgrade` with value `latest` (for k3OS versions prior to v0.11.x please use label `plan.upgrade.cattle.io/k3os-latest`). The upgrade controller will then spawn an upgrade job
-that will drain most pods, upgrade the k3OS content under `/k3os/system`, and then reboot. The system should come back up running the latest
-kernel and k3s version bundled with k3OS and ready to schedule pods.
+#### Post v0.30
 
-#### Pre v0.9.0
+After v0.30, the [rancher/system-upgrade-controller](https://github.com/rancher/system-upgrade-controller) is no longer included in k3OS.
 
-If your k3OS installation is running a version prior to the v0.9.0 release or one of its release candidates you can setup
-the system upgrade controller to upgrade your k3OS by following these steps:
+Visit the link above for instructions on how to install it and configure it to upgrade k3OS.
 
-```shell script
-# apply the system-upgrade-controller manifest (once per cluster)
-kubectl apply -f https://raw.githubusercontent.com/petercb/k3os/master/overlay/share/rancher/k3s/server/manifests/system-upgrade-controller.yaml
-# after the system-upgrade-controller pod is Ready, apply the plan manifest (once per cluster)
-kubectl apply -f https://raw.githubusercontent.com/petercb/k3os/master/overlay/share/rancher/k3s/server/manifests/system-upgrade-plans/k3os-latest.yaml
-# apply the `plan.upgrade.cattle.io/k3os-latest` label as described above (for every k3OS node), e.g.
-kubectl label nodes -l k3os.io/mode plan.upgrade.cattle.io/k3os-latest=enabled # this should work on any cluster with k3OS installations at v0.7.0 or greater
-```
+If you were using a previous version of k3OS you should remove the system-upgrade-controller and any upgrade plans from your servers manifests directory before installing the new version.
+
 
 ### Manual Upgrades
 
