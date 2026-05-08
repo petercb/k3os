@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
+ARG KERNEL_VERSION=latest
+ARG TARGETARCH
+
 ### BASE ###
-FROM alpine:3.22 AS util
+FROM alpine:3.23 AS util
 SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 ARG TARGETARCH
@@ -88,11 +91,42 @@ EOF
 
 
 ### 40kernel ###
-FROM util AS kernel
+FROM ghcr.io/petercb/k3os-kernel:${KERNEL_VERSION}-${TARGETARCH} AS kernel
 
 ARG TARGETARCH
 ARG VERSION
-ARG KERNEL_VERSION
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# hadolint ignore=DL3008
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    <<-EOF
+    #!/bin/bash
+    rm -f /etc/apt/apt.conf.d/docker-clean
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+    apt-get update
+    PKGS=(
+        dracut-core
+        linux-firmware-amd-graphics
+        linux-firmware-misc
+        linux-firmware-realtek
+        squashfs-tools
+    )
+    case "${TARGETARCH}" in
+        amd64) PKGS+=(
+            amd64-microcode
+            intel-microcode
+            linux-firmware-amd-misc
+            linux-firmware-intel-misc
+            linux-firmware-intel-graphics
+        ) ;;
+        arm64) PKGS+=(linux-firmware-raspi) ;;
+        *) echo "Unknown architecture: ${TARGETARCH}"; exit 1 ;;
+    esac
+    echo "Installing packages: ${PKGS[*]}"
+    apt-get install -y --no-install-recommends "${PKGS[@]}"
+EOF
 
 COPY --from=bin /output/k3os /usr/src/initrd/k3os/system/k3os/${VERSION}/k3os
 
@@ -102,24 +136,66 @@ RUN ln -s ${VERSION} current
 WORKDIR /usr/src/initrd
 RUN ln -s k3os/system/k3os/current/k3os init
 
-ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-${TARGETARCH}.squashfs \
-    /output/kernel.squashfs
-ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-vmlinuz-${TARGETARCH}.img \
-    /output/vmlinuz
-ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-kernel-version-${TARGETARCH}.txt \
-    /output/version
-ADD --link \
-    https://github.com/petercb/k3os-kernel/releases/download/${KERNEL_VERSION}/k3os-initrd-${TARGETARCH}.gz \
-    /tmp/initrd.gz
-
-WORKDIR /usr/src/initrd
+WORKDIR /output
 # hadolint ignore=DL4006
 RUN <<-EOF
-    zcat /tmp/initrd.gz | cpio -idm
-    find . | cpio -H newc -o | gzip -c -1 > /output/initrd
+    dracut \
+        --force \
+        --gzip \
+        --early-microcode \
+        --no-hostonly \
+        --modules "kernel-modules" \
+        --kernel-only \
+        --kver "${KVER}" \
+        --include /usr/src/initrd \
+        -v
+    mv "/boot/initrd.img-${KVER}" ./initrd
+    ls -lFah
+    lsinitrd initrd
+EOF
+
+# Make squashfs
+WORKDIR /tmp/squashroot
+RUN <<-EOF
+    # Copy only the firmware we need
+    mkdir -p usr/lib/firmware
+    firmware_count=0
+    while IFS= read -r fw_path; do
+        [ -z "${fw_path}" ] && continue
+
+        # Use a bash array to expand globs safely (handles internal and suffix wildcards)
+        shopt -s nullglob
+        files=( /lib/firmware/${fw_path}* )
+        shopt -u nullglob
+
+        if [ ${#files[@]} -eq 0 ]; then
+            echo "[WARN] Firmware not found: ${fw_path}"
+            continue
+        fi
+
+        for src in "${files[@]}"; do
+            rel="${src#/lib/firmware/}"
+            dst="usr/lib/firmware/${rel}"
+            if [ -d "$src" ]; then
+                # Directory entry (e.g., i915/, amdgpu/) — copy whole dir
+                mkdir -p "${dst}"
+                cp -a "${src}/." "${dst}/"
+            else
+                mkdir -p "$(dirname "${dst}")"
+                cp -a "${src}" "${dst}"
+            fi
+            firmware_count=$((firmware_count + 1))
+        done
+    done < /boot/firmware-list.txt
+    echo "Copied ${firmware_count} firmware entries (selective)"
+    cp -a /lib/modules lib/
+    cp /boot/System.map ./
+    cp /boot/config ./
+    cp /boot/kversion ./version
+    cp /boot/vmlinuz ./
+    mksquashfs . /output/kernel.squashfs -no-progress -info
+    mv vmlinuz /output/
+    mv version /output/
     rm -rf ./*
 EOF
 
@@ -219,13 +295,18 @@ RUN <<-EOF
 
             # calculate size of root disk
             ROOT_SIZE=$(du -csk . | tail -1 | cut -f1)
-            ROOT_SIZE=$((ROOT_SIZE * 1024))
-            ROOT_SIZE=$(((ROOT_SIZE + (ROOT_SIZE / 10)) / 512))
+            echo "Root source file size = ${ROOT_SIZE} kB blocks"
+            # A safe floor for a standard ext4 journal is about 20MB (20480 KB)
+            # We also add a small 2% margin for the inode table
+            ROOT_SIZE=$((ROOT_SIZE + 25600 + (ROOT_SIZE * 2 / 100)))
+            # Convert KB to 512B sectors
+            ROOT_SIZE=$((ROOT_SIZE * 2))
 
             ROOT_IMG="/tmp/root_partition.img"
             echo "Creating ${ROOT_IMG} of ${ROOT_SIZE} 512B blocks"
             fallocate -l $((ROOT_SIZE * 512)) "${ROOT_IMG}"
-            mke2fs -t ext4 -T default -L K3OS_STATE -O ^orphan_file -d . "${ROOT_IMG}"
+            # Use -m 0 to disable the 5% root reservation (since it's being expanded later)
+            mke2fs -t ext4 -L K3OS_STATE -m 0 -O ^orphan_file -d . "${ROOT_IMG}"
             e2fsck -f -y "${ROOT_IMG}"
             tune2fs -l "${ROOT_IMG}"
 
