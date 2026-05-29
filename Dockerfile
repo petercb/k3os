@@ -40,11 +40,9 @@ ARG BASE_VERSION
 ARG VERSION
 ARG TARGETARCH
 
-ADD --link \
+ADD --link --unpack=true \
     https://github.com/petercb/k3os-base/releases/download/${BASE_VERSION}/userspace-${TARGETARCH}.tar.gz \
-    /tmp/
-
-RUN tar xf /tmp/userspace-${TARGETARCH}.tar.gz -C /
+    /
 
 COPY --from=k3s /output/install.sh /usr/src/image/libexec/k3os/k3s-install.sh
 
@@ -78,12 +76,11 @@ ARG TARGETARCH
 
 COPY --from=rootfs /output/rootfs.squashfs /usr/src/
 COPY install.sh /output/k3os-install.sh
-ADD --link \
+ADD --link --unpack=true \
     ${K3OS_BIN_REPO}/releases/download/${K3OS_BIN_VERSION}/k3os-bin_linux_${TARGETARCH}.tar.gz \
-    /tmp/k3os-bin.tar.gz
+    /output/
 
 RUN <<-EOF
-    tar xf /tmp/k3os-bin.tar.gz -C /output/
     test -f /output/k3os
     printf "_sqmagic_" >> /output/k3os
     cat /usr/src/rootfs.squashfs >> /output/k3os
