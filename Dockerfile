@@ -144,7 +144,7 @@ RUN <<-EOF
         --modules "kernel-modules" \
         --kernel-only \
         --kver "${KVER}" \
-        --include /usr/src/initrd \
+        --include /usr/src/initrd / \
         -v
     mv "/boot/initrd.img-${KVER}" ./initrd
     ls -lFah
