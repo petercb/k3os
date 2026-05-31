@@ -10,13 +10,13 @@ executors:
     environment:
       ARCH: arm64
     docker:
-      - image: cimg/go:1.26
+      - image: cimg/go:1.24
     resource_class: arm.large
   amd64:
     environment:
       ARCH: amd64
     docker:
-      - image: cimg/go:1.26
+      - image: cimg/go:1.24
     resource_class: large
 
 
