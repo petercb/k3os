@@ -172,7 +172,7 @@ RUN <<-EOF
 
         for src in "${files[@]}"; do
             rel="${src#/lib/firmware/}"
-            dst="usr/lib/firmware/${rel}"
+            dst="lib/firmware/${rel}"
             if [ -d "$src" ]; then
                 # Directory entry (e.g., i915/, amdgpu/) — copy whole dir
                 mkdir -p "${dst}"
@@ -185,7 +185,7 @@ RUN <<-EOF
         done
     done < /boot/firmware-list.txt
     echo "Copied ${firmware_count} firmware entries (selective)"
-    cp -a /lib/modules lib/
+    cp -a /lib/modules lib/modules
     cp /boot/System.map ./
     cp /boot/config ./
     cp /boot/kversion ./version
