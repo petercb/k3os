@@ -21,30 +21,77 @@ if [ ! -e "${STATE_DIR}/${DISK_NAME:=vda.img}" ]; then
     qemu-img create -f qcow2 "${STATE_DIR}/${DISK_NAME}" "${DISK_SIZE:=8g}"
 fi
 
-# Example Usage
-## live cd boot
-# ./scripts/run-qemu k3os.mode=live
+# Detect KVM availability (available on bare-metal/machine executors, not Docker executors)
+if [ -w /dev/kvm ] 2>/dev/null; then
+    ACCEL_OPTS="${ACCEL:=kvm}"
+    CPU_OPTS="${CPU:=host}"
+else
+    # TCG software emulation with multi-threaded support for CI environments
+    ACCEL_OPTS="${ACCEL:=tcg,thread=multi}"
+    CPU_OPTS="${CPU:=max}"
+fi
 
-## silent install
-# DISK_NAME=test.img ./scripts/run-qemu k3os.mode=install k3os.install.silent k3os.install.device=/dev/vda k3os.install.power_off=true
+# Build QEMU arguments
+QEMU_ARGS=(
+    -m "${MEMORY:=2048}"
+    -smp "${SMP:=2}"
+    -accel "${ACCEL_OPTS}"
+    -cpu "${CPU_OPTS}"
+    -nographic
+    -serial mon:stdio
+    -rtc base=utc,clock=rt
+    -kernel "$(dirname $0)/../dist/k3os-vmlinuz-${ARCH}"
+    -initrd "$(dirname $0)/../dist/k3os-initrd-${ARCH}"
+    -drive "if=virtio,media=disk,file=${STATE_DIR}/${DISK_NAME}"
+)
 
-## run installed vm
-# DISK_NAME=test.img ./scripts/run-qemu k3os.password=rancher
+# Architecture-specific machine and firmware configuration
+case "${ARCH}" in
+    arm64)
+        # arm64 requires the virt machine type and EFI firmware
+        QEMU_ARGS+=(-machine "virt")
+        # Use the system AAVMF firmware (from qemu-efi-aarch64 package)
+        EFI_CODE="${EFI_CODE:-}"
+        if [ -z "${EFI_CODE}" ]; then
+            for candidate in \
+                /usr/share/AAVMF/AAVMF_CODE.fd \
+                /usr/share/qemu-efi-aarch64/QEMU_EFI.fd \
+                /usr/share/OVMF/QEMU_EFI.fd; do
+                if [ -f "${candidate}" ]; then
+                    EFI_CODE="${candidate}"
+                    break
+                fi
+            done
+        fi
+        if [ -n "${EFI_CODE}" ]; then
+            QEMU_ARGS+=(-bios "${EFI_CODE}")
+        fi
+        ;;
+esac
 
-## recover installed vm
-# DISK_NAME=test.img ./scripts/run-qemu k3os.password=rancher k3os.mode=live
+# Guest agent socket (useful for interactive use, skip in CI)
+if [ "${CI:-}" != "true" ]; then
+    QEMU_ARGS+=(
+        -chardev "socket,path=${STATE_DIR}/qga.sock,server=on,wait=off,id=qga0"
+        -device virtio-serial
+        -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
+    )
+fi
 
-exec $QEMU_SYSTEM \
-    -m ${MEMORY:=2048} \
-    -machine accel=${ACCEL:="hax:kvm:hvf:tcg"} \
-    -nographic \
-    -serial mon:stdio \
-    -rtc base=utc,clock=rt \
-    -chardev "socket,path=${STATE_DIR}/qga.sock,server,nowait,id=qga0" \
-    -device virtio-serial \
-    -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
-    -kernel "$(dirname $0)/../dist/k3os-vmlinuz-${ARCH}" \
-    -initrd "$(dirname $0)/../dist/k3os-initrd-${ARCH}" \
-    -drive "if=ide,media=cdrom,file=$(dirname $0)/../dist/k3os-${ARCH}.iso" \
-    -drive "if=virtio,media=disk,file=${STATE_DIR}/${DISK_NAME}" \
+# ISO cdrom
+ISO_FILE="$(dirname $0)/../dist/k3os-${ARCH}.iso"
+if [ -f "${ISO_FILE}" ]; then
+    QEMU_ARGS+=(-drive "if=ide,media=cdrom,file=${ISO_FILE}")
+fi
+
+# Kernel command line
+QEMU_ARGS+=(
     -append "console=${CONSOLE:=ttyS0} loglevel=${LOGLEVEL:=4} printk.devkmsg=${PRINTK_DEVKMSG:=on} ${*:-k3os.password=rancher k3os.mode=live}"
+)
+
+# In CI, wrap with a timeout to prevent hangs (default 10 minutes)
+if [ "${CI:-}" = "true" ] && [ -n "${QEMU_TIMEOUT:-}" ]; then
+    exec timeout --signal=KILL "${QEMU_TIMEOUT}" $QEMU_SYSTEM "${QEMU_ARGS[@]}"
+else
+    exec $QEMU_SYSTEM "${QEMU_ARGS[@]}"
+fi
