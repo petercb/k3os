@@ -81,7 +81,15 @@ fi
 # ISO cdrom
 ISO_FILE="$(dirname $0)/../dist/k3os-${ARCH}.iso"
 if [ -f "${ISO_FILE}" ]; then
-    QEMU_ARGS+=(-drive "if=ide,media=cdrom,file=${ISO_FILE}")
+    case "${ARCH}" in
+        arm64)
+            # arm64 virt machine doesn't support IDE; use virtio-blk for the ISO
+            QEMU_ARGS+=(-drive "if=virtio,media=cdrom,file=${ISO_FILE},readonly=on")
+            ;;
+        *)
+            QEMU_ARGS+=(-drive "if=ide,media=cdrom,file=${ISO_FILE}")
+            ;;
+    esac
 fi
 
 # Kernel command line
