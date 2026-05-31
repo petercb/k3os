@@ -155,7 +155,7 @@ EOF
 WORKDIR /tmp/squashroot
 RUN <<-EOF
     # Copy only the firmware we need
-    mkdir -p usr/lib/firmware
+    mkdir -p lib/firmware
     firmware_count=0
     while IFS= read -r fw_path; do
         [ -z "${fw_path}" ] && continue
@@ -261,18 +261,24 @@ COPY iso-files/config.yaml /usr/src/${VERSION}/k3os/system/
 WORKDIR /usr/src/${VERSION}
 # hadolint ignore=DL3018,DL4006,SC2086,SC3037
 RUN <<-EOF
-    PKGS="grub grub-efi mtools"
+    PKGS="grub grub-efi mtools xorriso"
     case "${TARGETARCH}" in
         amd64)
-            PKGS="${PKGS} grub-bios xorriso"
+            PKGS="${PKGS} grub-bios"
             ;;
         arm64)
             PKGS="${PKGS} e2fsprogs e2fsprogs-extra dosfstools sfdisk unzip"
             ;;
     esac
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
+
+    # Build ISO for all architectures (used for QEMU testing and live boot)
+    grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- -volid K3OS
+    [ -e /output/k3os-${TARGETARCH}.iso ]
+
     case "${TARGETARCH}" in
         arm64)
+            # Additionally build the RPi4 disk image for SD card flashing
             rm -rf boot
             mkdir -p k3os/data/opt
             echo "/dev/xxx 99" > k3os/system/growpart
@@ -315,10 +321,6 @@ RUN <<-EOF
             dd if="${ROOT_IMG}" of="${FINAL_IMG}" bs=512 seek=$((BOOT_SIZE + 2048)) conv=notrunc
             rm "${BOOT_IMG}" "${ROOT_IMG}"
             sfdisk -lV "${FINAL_IMG}"
-            ;;
-        amd64)
-            grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- -volid K3OS
-            [ -e /output/k3os-${TARGETARCH}.iso ]
             ;;
     esac
     rm -rf ./*
