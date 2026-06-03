@@ -1,7 +1,7 @@
 ---
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -12,24 +12,21 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.4.2
     hooks:
       - id: codespell
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.33.0
+    rev: v1.38.0
     hooks:
       - id: yamllint
   - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.9.0
+    rev: v0.11.0
     hooks:
       - id: shellcheck
         args: ["--severity=warning"]  # only show errors and warnings
-  - repo: local
+  - repo: https://github.com/zahorniak/pre-commit-circleci.git
+    rev: v1.3.0
     hooks:
-      - id: circleci
-        name: CircleCI Config validate
-        language: system
-        entry: circleci config validate
-        files: '\.circleci/config\.yml'
+      - id: circleci_validate
         stages:
-          - commit
+          - pre-commit
