@@ -228,15 +228,17 @@ RUN <<-EOF
 EOF
 
 ### 60package ###
-COPY --from=kernel /output/ /output/k3os/system/kernel/
+COPY --from=kernel /output/version /tmp/version
 
 WORKDIR /output/k3os/system/kernel
 RUN <<-EOF
-    mkdir -vp "$(cat version)"
-    ln -sf "$(cat version)" current
-    mv -vf initrd kernel.squashfs current/
-    rm -vf version vmlinuz
+    mkdir -vp "$(cat /tmp/version)"
+    ln -sf "$(cat /tmp/version)" current
+    rm /tmp/version
 EOF
+
+COPY --from=kernel /output/initrd current/
+COPY --from=kernel /output/kernel.squashfs current/
 
 
 ### Output ###
