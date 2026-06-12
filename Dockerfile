@@ -275,6 +275,25 @@ RUN <<-EOF
     apk add --no-cache --no-progress --virtual .tools ${PKGS}
 
     # Build ISO for all architectures (used for QEMU testing and live boot)
+    # Create an explicit standalone EFI image and place it where grub-mkrescue
+    # expects it, ensuring a valid El Torito EFI boot entry for strict UEFI
+    # firmware (e.g. HP ProDesk) that won't accept a minimal auto-generated one.
+    case "${TARGETARCH}" in
+        amd64)
+            mkdir -p efi/boot
+            grub-mkstandalone -O x86_64-efi \
+                --output=efi/boot/bootx64.efi \
+                --locales="" --fonts="" \
+                "boot/grub/grub.cfg=boot/grub/grub.cfg"
+            ;;
+        arm64)
+            mkdir -p efi/boot
+            grub-mkstandalone -O arm64-efi \
+                --output=efi/boot/bootaa64.efi \
+                --locales="" --fonts="" \
+                "boot/grub/grub.cfg=boot/grub/grub.cfg"
+            ;;
+    esac
     grub-mkrescue -o /output/k3os-${TARGETARCH}.iso . -- -volid K3OS
     [ -e /output/k3os-${TARGETARCH}.iso ]
 
